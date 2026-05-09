@@ -250,6 +250,8 @@ Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
 - Resource quotas, rate limiting, graceful degradation
 - Observability (metrics, traces, health endpoints)
 - A clean story for migrating / backing up workspaces
+- **Skills mount layer** — ride `agentskills.io`, expose host skills into the container (see [Skills Ecosystem](#skills-ecosystem) above)
+- **Scenario runtime** — agents inside simulated contexts (life-scenario RPGs) for evaluation, training data generation, and experiential agent development
 
 No promises. These live here so they don't get lost.
 
@@ -258,6 +260,90 @@ No promises. These live here so they don't get lost.
 - **[OpenClaw](https://github.com/openclaw/openclaw)** — open-source agent framework.
 - **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — self-improving agent framework by [Nous Research](https://nousresearch.com). Sibling of OpenClaw with a 15+ platform messaging gateway.
 - **Pi** — bare Raspberry Pi deployments, no heavyweight framework required.
+
+## Skills Ecosystem
+
+Nursery does not invent a new plugin format. The agent-skills world is converging, and we intend to **ride the standard, not fight it.**
+
+### The `agentskills.io` open standard
+
+A **skill** is a folder containing a `SKILL.md` file with YAML frontmatter and a markdown body:
+
+```yaml
+---
+name: my-skill
+description: Brief description of what this skill does
+version: 1.0.0
+platforms: [macos, linux]     # optional OS restriction
+metadata:
+  hermes:                     # Hermes-specific extensions (ignored elsewhere)
+    tags: [python, automation]
+    fallback_for_toolsets: [web]
+  clawdbot:                   # OpenClaw-specific extensions (ignored elsewhere)
+    emoji: "🔎"
+    requires:
+      bins: [node]
+      env_any: [TAVILY_API_KEY]
+---
+
+# Skill Title
+
+## When to Use ...
+## Procedure ...
+## Pitfalls ...
+## Verification ...
+```
+
+The format is adopted by **OpenClaw, Hermes, Gemini CLI, Cursor, OpenHands, Amp, Junie, OpenCode, Mux, and more** — the first plugin format with real cross-framework buy-in. See [agentskills.io](https://agentskills.io/).
+
+### What is and isn't portable
+
+| | Portable across hosts? |
+|---|---|
+| `SKILL.md` body (procedure, pitfalls, verification) | ✅ Yes |
+| Core frontmatter (`name`, `description`, `version`, `platforms`) | ✅ Yes |
+| Directory layout (`skill-name/SKILL.md` + scripts/refs) | ✅ Yes |
+| `metadata.hermes.*` extensions (conditional activation, tags) | ⚠️ Hermes only; silently ignored elsewhere |
+| `metadata.clawdbot.*` extensions (emoji, bin requirements) | ⚠️ OpenClaw only; silently ignored elsewhere |
+| Script implementations (e.g. a `search.mjs`) | ⚠️ Portable *if* the host has the right tooling (Node, env vars, etc.) |
+
+**Rule of thumb:** a core skill drops between Hermes and OpenClaw without fuss. Framework-specific niceties (conditional activation, icons, bin preflight) degrade gracefully — the skill still works, just without that specific enhancement.
+
+### How Nursery exposes skills to agents *(planned)*
+
+Nursery will not bundle skills itself. Instead, agents will mount a skills directory from the host:
+
+```yaml
+# agent.yaml (future)
+skills:
+  source: host                    # 'host' = mount from host, 'bundle' = from image, 'none' = disabled
+  mount: ~/.openclaw/skills       # path on the host
+  readonly: true                  # default: agents can read but not modify
+```
+
+Under the hood, this becomes a `-v ~/.openclaw/skills:/skills:ro` at `docker run` time. The agent then reads `/skills/*/SKILL.md` at startup and exposes them per framework conventions.
+
+Status: 🥚 not implemented. The `capabilities:` field in the spec is a stub; the actual skill loader lives in the agent runtime and hasn't been written.
+
+### Why this matters — the RPG / life-scenario direction
+
+The long-term vision for Nursery includes **running agents inside simulated contexts**, like life-scenario RPGs: an agent plays a character, navigates a situation, makes decisions with consequences, accumulates memory. This is useful for:
+
+- **Evaluating agent behavior** in controlled scenarios (ethics, social dynamics, decision quality under uncertainty).
+- **Training data generation** — trajectories from agents-in-scenarios become RL / SFT data.
+- **Experiential agent development** — skills that emerge from scenario play, not just documentation.
+- **Entertainment / education** — agents as interactive narrative partners.
+
+Skills are the right substrate for this because:
+
+1. **Scenario mechanics become skills.** A "combat" skill, a "dialogue" skill, a "resource management" skill. Load the ones relevant to the game.
+2. **Portable across frameworks.** The same scenario skill pack runs a Hermes agent or an OpenClaw agent identically.
+3. **Composable.** A life-scenario RPG is a *set* of skills + a *persona* (`SOUL.md`) + a *workspace* (memory of what happened). All three are already in Nursery's vocabulary.
+4. **Measurable.** Skills declare `verification` sections — we can score whether an agent completed a scenario's objectives.
+
+This isn't built yet, but the architecture is deliberately shaped toward it. Every design decision — workspace as identity, soul as persona, skills as procedural memory — is compatible with "spawn ten agents into a scenario, observe, collect trajectories."
+
+When we get there, it'll be its own phase. For now: document the ecosystem, respect the standard, don't paint ourselves into a proprietary corner.
 
 ## Status
 
