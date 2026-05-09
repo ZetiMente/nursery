@@ -261,6 +261,42 @@ No promises. These live here so they don't get lost.
 - **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — self-improving agent framework by [Nous Research](https://nousresearch.com). Sibling of OpenClaw with a 15+ platform messaging gateway.
 - **Pi** — bare Raspberry Pi deployments, no heavyweight framework required.
 
+## Inspirations
+
+Nursery is not built in a vacuum. Research and projects we're reading, in the order they mattered to our thinking.
+
+### Voyager — "An Open-Ended Embodied Agent with Large Language Models"
+
+[Paper](https://arxiv.org/abs/2305.16291) · [Code](https://github.com/MineDojo/Voyager) · Wang et al. (NVIDIA, Caltech, UT Austin, Stanford, ASU, 2023)
+
+Voyager is an LLM-powered agent that plays Minecraft and **learns by doing** — no fine-tuning, no gradients. Three ideas drive it:
+
+1. **Automatic curriculum.** GPT-4 proposes what to learn next based on what the agent can already do and what's around it. A form of in-context novelty search.
+2. **Ever-growing skill library.** Every time the agent writes working code (JavaScript, via mineflayer bots) that accomplishes something, it stores the code with a natural-language description. Later, on a similar task, it retrieves relevant skills by embedding similarity and composes them into new ones.
+3. **Iterative prompting with self-verification.** GPT-4 writes code → the world runs it → errors and observations feed back in → GPT-4 rewrites. The loop is the training.
+
+Result: 3.3× more unique items, 15.3× faster to key tech milestones than prior SOTA, and — critically — **the skill library generalizes to new Minecraft worlds**. The agent transfers what it learned.
+
+**Why it matters for Nursery:**
+
+Voyager is the cleanest precedent for the [scenario / RPG direction](#why-this-matters--the-rpg--life-scenario-direction) we've declared on the roadmap. It tells us the architecture questions we're going to have to answer, and gives us a concrete working reference. Five things we'd steal:
+
+- **Skills as code, not just instructions.** `SKILL.md` today captures *what* and *when*. Voyager captures *how* in executable form. For a scenario runtime, skills need to be *runnable*, not just readable.
+- **Embedding-indexed retrieval.** Don't load every skill into the prompt; retrieve the top-*k* by semantic similarity to the current task. Nursery's workspace becomes a home for a skill vector DB alongside daily memory.
+- **Self-verification as a loop-closer.** `SKILL.md` already has a `## Verification` section. Make the scenario runtime actually *execute* it and feed the outcome back in.
+- **Environment feedback as the rewrite signal.** The scenario runtime emits structured observations (errors, state deltas, objects-in-view). The agent's response is conditioned on what actually happened.
+- **Automatic curriculum as a meta-skill.** The "what should I learn next" prompt is itself a reusable pattern. Bundle it as a canonical skill; any agent in any scenario can call it.
+
+**What we'd adapt, not adopt:**
+
+Voyager leans on GPT-4-class cloud models. That works for their research setting. For Nursery, we need to be honest about where lifelong-learning-by-doing can operate: probably cloud backends for now (Claude, GPT-4, Gemini), with smaller local models in a spectator / faster-turn role. Gemma 4 E2B on a Pi 4 at 2 tok/s can't run a Voyager curriculum in real time — and pretending otherwise would be architectural dishonesty.
+
+**Implications for the roadmap** (captured more fully in [`docs/scenario-runtime.md`](./docs/scenario-runtime.md)):
+
+- The "Skills mount layer" Horizon bullet wants to be **read-write**, not read-only — agents author skills.
+- The "Scenario runtime" bullet wants an **environment-feedback contract** — `POST /step` with observations, not just `POST /message` with text.
+- Neither is happening in Phase 3. But when we get to Phase ∞, Voyager is the north star to aim for.
+
 ## Skills Ecosystem
 
 Nursery does not invent a new plugin format. The agent-skills world is converging, and we intend to **ride the standard, not fight it.**
