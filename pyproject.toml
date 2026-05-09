@@ -47,6 +47,8 @@ packages = ["cli/src/nursery_cli"]
 [tool.hatch.build.targets.sdist]
 include = [
     "cli/",
+    "agent/",
+    "docker/",
     "spec/",
     "examples/",
     "README.md",
