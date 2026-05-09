@@ -15,6 +15,9 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+.ruff_cache/
+.pytest_cache/
+uv.lock-* # stray lock copies only; uv.lock itself IS committed
 
 # =============================================================================
 # SECRETS - NEVER COMMIT

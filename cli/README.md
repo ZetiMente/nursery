@@ -25,27 +25,45 @@ nursery inspect <name>         # Phase 2
 nursery exec <name> <cmd>      # Phase 2
 ```
 
-## Install / Run (dev)
+## Run (dev, via uv)
 
-No install step yet. Run directly from the repo:
-
-```bash
-# From repo root:
-./cli/nursery validate examples/agents/example.yaml
-```
-
-Requires Python 3.10+ with `pyyaml` and `jsonschema`:
+From the repo root:
 
 ```bash
-pip install pyyaml jsonschema
+uv sync                # install deps + editable package
+uv run nursery validate examples/agents/example.yaml
 ```
+
+Or install as a tool (no repo required):
+
+```bash
+uv tool install .                               # from a clone
+uv tool install git+https://github.com/ZetiMente/nursery  # direct from GitHub
+nursery validate path/to/agent.yaml
+```
+
+Python 3.10+ required. Dependencies (`pyyaml`, `jsonschema`) install automatically.
+
+## Layout
+
+```
+cli/
+└── src/
+    └── nursery_cli/
+        ├── __init__.py
+        └── _cli.py        # argparse + commands live here
+```
+
+Build config (`pyproject.toml`) lives at the repo root.
 
 ## Design Notes
 
 - Thin wrapper over Docker + host adapter hooks (once Phase 2+ lands).
-- State lives on the host filesystem, not in the CLI itself. Reinstalling the CLI should not lose any agents.
+- State lives on the host filesystem, not in the CLI itself. Reinstalling should not lose agents.
 - Should work identically on a laptop, a server, or a Pi.
+- Single `pyproject.toml` at the repo root; the schema in `spec/` is force-included into the wheel so installed users don't need the repo.
 
 ## Status
 
-🐣 Phase 1 complete: `validate` works. Spawn / lifecycle commands come in Phase 2.
+🐥 Phase 1 complete: `validate` works, package installs cleanly via `uv`.
+Spawn / lifecycle commands come in Phase 2.

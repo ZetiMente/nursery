@@ -1,28 +1,54 @@
-#!/usr/bin/env python3
-"""nursery — turnkey reproducible AI agents
-
-Usage:
-  nursery validate <spec.yaml>     Lint an agent spec against the schema.
-  nursery --help                   Show this help.
-  nursery --version                Show version.
-
-Phase 1 scope: validate only. spawn/stop/ps/etc. come in later phases.
-"""
+"""nursery CLI entry point — turnkey reproducible AI agents."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+from importlib import resources
 from pathlib import Path
 
-VERSION = "0.1.0"
+__version__ = "0.1.0"
 
-# Locate the schema relative to this file. When installed, this will need
-# a proper package resource lookup — fine for Phase 1.
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
-SCHEMA_PATH = REPO_ROOT / "spec" / "agent.schema.json"
+
+def _find_schema() -> Path:
+    """Locate the agent schema.
+
+    Resolution order:
+      1. Bundled with the package (installed mode).
+      2. ../spec/agent.schema.json relative to this file (dev/repo mode).
+      3. $NURSERY_SCHEMA environment variable (escape hatch).
+    """
+    import os
+
+    env_override = os.environ.get("NURSERY_SCHEMA")
+    if env_override:
+        p = Path(env_override)
+        if p.exists():
+            return p
+
+    # Bundled package resource
+    try:
+        with resources.as_file(
+            resources.files("nursery_cli").joinpath("agent.schema.json")
+        ) as p:
+            if p.exists():
+                return p
+    except (ModuleNotFoundError, FileNotFoundError):
+        pass
+
+    # Dev mode: walk up from this file to find the repo's spec/ dir
+    here = Path(__file__).resolve()
+    for ancestor in (here.parent, *here.parents):
+        candidate = ancestor / "spec" / "agent.schema.json"
+        if candidate.exists():
+            return candidate
+
+    sys.stderr.write(
+        "error: could not locate agent.schema.json.\n"
+        "       Set NURSERY_SCHEMA=<path> or reinstall the package.\n"
+    )
+    sys.exit(2)
 
 
 def _load_yaml(path: Path) -> dict:
@@ -30,13 +56,12 @@ def _load_yaml(path: Path) -> dict:
     try:
         import yaml  # type: ignore
     except ImportError:
-        # Allow JSON-only validation if PyYAML isn't installed.
         if path.suffix.lower() == ".json":
             return json.loads(path.read_text())
         sys.stderr.write(
             "error: PyYAML is required to read YAML specs.\n"
-            "       Install it with: pip install pyyaml\n"
-            "       (or use a .json spec file)\n"
+            "       This should be installed automatically — if you see this, the\n"
+            "       install is broken. Try: uv tool install --force nursery-cli\n"
         )
         sys.exit(2)
 
@@ -45,10 +70,8 @@ def _load_yaml(path: Path) -> dict:
 
 
 def _load_schema() -> dict:
-    if not SCHEMA_PATH.exists():
-        sys.stderr.write(f"error: schema not found at {SCHEMA_PATH}\n")
-        sys.exit(2)
-    return json.loads(SCHEMA_PATH.read_text())
+    schema_path = _find_schema()
+    return json.loads(schema_path.read_text())
 
 
 def _validate(spec: dict, schema: dict) -> list[str]:
@@ -58,7 +81,7 @@ def _validate(spec: dict, schema: dict) -> list[str]:
     except ImportError:
         sys.stderr.write(
             "error: jsonschema is required for validation.\n"
-            "       Install it with: pip install jsonschema\n"
+            "       This should be installed automatically — reinstall the package.\n"
         )
         sys.exit(2)
 
@@ -112,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"nursery {VERSION}",
+        version=f"nursery {__version__}",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

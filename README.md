@@ -31,7 +31,13 @@ You can get a new body. You can't get a new self.
 ## Quickstart *(aspirational — see Status)*
 
 ```bash
-# Spawn a new agent from an example template
+# Install the CLI (requires uv — https://docs.astral.sh/uv/)
+uv tool install git+https://github.com/ZetiMente/nursery
+
+# Validate an agent spec
+nursery validate agent.yaml
+
+# Spawn a new agent from a template
 nursery spawn examples/agents/layla.yaml
 
 # List running agents
