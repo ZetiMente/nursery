@@ -1,18 +1,15 @@
 """Entry point for the Nursery agent container.
 
-Responsibilities (Phase 2a):
+Responsibilities:
   1. Read the agent spec from /spec/agent.yaml (path overridable).
   2. Read the soul (persona) from the path in the spec.
   3. Verify the workspace is mounted read/write.
-  4. Verify secrets directory is mounted (read-only is not enforced here;
-     we trust the host).
-  5. Start an HTTP server on 0.0.0.0:$NURSERY_AGENT_PORT with:
-       GET /healthz   → {"ok": true, "name": ..., "model": ...}
-       GET /info      → spec metadata (no secret values)
-       POST /message  → echoes the message back (placeholder for Phase 2b)
-
-No inference yet. This is a skeleton — enough to prove the container boots,
-reads its spec, and can accept messages. Phase 2b wires a real model in.
+  4. Enumerate mounted secret names (values never leak).
+  5. Resolve the backend from spec['model'].
+  6. Serve HTTP on 0.0.0.0:$NURSERY_AGENT_PORT:
+       GET /healthz    → {ok, name, model, backend_ok}
+       GET /info       → spec metadata + backend health (no secret values)
+       POST /message   → run inference through the backend
 """
 
 from __future__ import annotations
@@ -26,6 +23,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from nursery_agent.backends import Backend, BackendError, Message, resolve_backend
+
 LOG = logging.getLogger("nursery-agent")
 
 DEFAULT_SPEC_PATH = "/spec/agent.yaml"
@@ -35,7 +34,7 @@ DEFAULT_SECRETS_DIR = "/run/secrets"
 
 
 # --------------------------------------------------------------------------
-# Spec loading
+# Spec / environment loading
 # --------------------------------------------------------------------------
 
 
@@ -60,7 +59,6 @@ def _load_spec(path: Path) -> dict[str, Any]:
 
 
 def _resolve_soul(spec: dict[str, Any], spec_path: Path) -> str | None:
-    """Return the contents of the soul file, or None if no soul specified."""
     soul_ref = spec.get("soul")
     if not soul_ref:
         return None
@@ -82,7 +80,6 @@ def _check_workspace(workspace: str) -> None:
         raise SystemExit(f"agent: workspace {workspace} does not exist (must be mounted)")
     if not p.is_dir():
         raise SystemExit(f"agent: workspace {workspace} is not a directory")
-    # Sanity check: can we write?
     try:
         test = p / ".nursery-write-test"
         test.write_text("ok")
@@ -108,6 +105,7 @@ class _State:
     soul: str | None
     secrets: list[str]
     workspace: str
+    backend: Backend
 
 
 STATE = _State()
@@ -127,10 +125,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         if self.path == "/healthz":
+            health = STATE.backend.health()
             self._json(200, {
                 "ok": True,
                 "name": STATE.spec.get("name"),
                 "model": STATE.spec.get("model"),
+                "backend_ok": bool(health.get("ok")),
             })
             return
         if self.path == "/info":
@@ -144,6 +144,7 @@ class Handler(BaseHTTPRequestHandler):
                 "soul_loaded": STATE.soul is not None,
                 "soul_bytes": len(STATE.soul) if STATE.soul else 0,
                 "secrets_mounted": STATE.secrets,
+                "backend": STATE.backend.health(),
             })
             return
         self._json(404, {"error": "not found"})
@@ -161,12 +162,42 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": f"invalid json: {e}"})
             return
 
-        # Phase 2a placeholder: echo + metadata. Phase 2b will route to a model.
+        # Expected body:
+        #   { "text": "...", "history": [ {role, content}, ... ] (optional) }
+        text = body.get("text")
+        if not isinstance(text, str) or not text.strip():
+            self._json(400, {"error": "body must include a non-empty 'text' field"})
+            return
+
+        history: list[Message] = []
+        for h in body.get("history", []) or []:
+            role = h.get("role")
+            content = h.get("content")
+            if role in ("user", "assistant", "system") and isinstance(content, str):
+                history.append(Message(role=role, content=content))
+
+        # Build message list: soul → history → this user message.
+        messages: list[Message] = []
+        if STATE.soul:
+            messages.append(Message(role="system", content=STATE.soul.strip()))
+        messages.extend(history)
+        messages.append(Message(role="user", content=text))
+
+        try:
+            reply = STATE.backend.chat(messages)
+        except BackendError as e:
+            self._json(502, {"error": f"backend error: {e}"})
+            return
+        except Exception as e:  # noqa: BLE001 — surface anything unexpected
+            LOG.exception("agent: unexpected backend failure")
+            self._json(500, {"error": f"internal error: {e}"})
+            return
+
         self._json(200, {
-            "ok": True,
             "agent": STATE.spec.get("name"),
-            "received": body,
-            "note": "Phase 2a: echo-only. No inference yet.",
+            "reply": reply.content,
+            "thinking": reply.thinking,
+            "meta": reply.meta,
         })
 
 
@@ -202,14 +233,24 @@ def main() -> int:
     _check_workspace(workspace)
     secrets = _list_secrets(secrets_dir)
 
+    model = spec.get("model")
+    if not isinstance(model, str):
+        raise SystemExit("agent: spec must contain a 'model' string")
+
+    try:
+        backend = resolve_backend(model)
+    except BackendError as e:
+        raise SystemExit(f"agent: cannot resolve backend: {e}") from None
+
     STATE.spec = spec
     STATE.soul = soul
     STATE.secrets = secrets
     STATE.workspace = workspace
+    STATE.backend = backend
 
     LOG.info(
-        "agent: ready — name=%s model=%s soul=%s secrets=%s",
-        spec.get("name"), spec.get("model"),
+        "agent: ready — name=%s model=%s backend=%s soul=%s secrets=%s",
+        spec.get("name"), model, backend.name,
         "yes" if soul else "no",
         secrets or "none",
     )
