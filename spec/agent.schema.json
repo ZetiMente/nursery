@@ -24,6 +24,12 @@
       "description": "Model identifier in the form <provider>/<model>. The container translates this to a real inference client at runtime.",
       "pattern": "^[a-z0-9_.-]+/[a-zA-Z0-9_./:-]+$"
     },
+    "host": {
+      "type": "string",
+      "description": "Which host runtime the agent is designed to run on. Selects the default image variant and gateway conventions. Override at spawn time with --host.",
+      "enum": ["openclaw", "hermes", "pi"],
+      "default": "pi"
+    },
     "soul": {
       "type": "string",
       "description": "Path to the agent's persona file (typically SOUL.md). Resolved relative to the spec file."

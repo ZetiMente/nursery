@@ -2,27 +2,26 @@
 
 The `nursery` command-line interface.
 
-## Current Commands (Phase 1)
+## Commands
 
 ```bash
-nursery validate <spec.yaml>   # Lint a spec against the schema
-nursery --version              # Show version
-nursery --help                 # Show help
+nursery validate <spec.yaml>           # Lint a spec against the schema
+nursery spawn <spec.yaml> [--dry-run]  # Start a container from the spec
+nursery ps [-a]                        # List Nursery-managed containers
+nursery stop <agent-name>              # Stop a running agent (workspace persists)
+nursery rm <agent-name>                # Remove a container (workspace persists)
+nursery logs <agent-name> [-f] [-n N]  # Tail container logs
+nursery --version
+nursery --help
 ```
 
-## Planned Commands (future phases)
+## Planned (not yet implemented)
 
 ```bash
-nursery spawn <spec.yaml>      # Phase 2: create and start an agent
-nursery stop <name>            # Phase 2
-nursery start <name>           # Phase 2
-nursery rm <name>              # Phase 2
-nursery ps                     # Phase 2
-nursery ls                     # Phase 2
-nursery logs <name>            # Phase 2
-nursery fork <spec> --as <name>  # Phase 7
-nursery inspect <name>         # Phase 2
-nursery exec <name> <cmd>      # Phase 2
+nursery start <agent-name>             # Start a previously-stopped agent
+nursery exec <agent-name> <cmd>        # Run a command inside the container
+nursery inspect <agent-name>           # Show agent state (workspace, secrets, channels)
+nursery fork <spec> --as <name>        # Clone blueprint into a new individual (Phase 7)
 ```
 
 ## Run (dev, via uv)
@@ -30,40 +29,66 @@ nursery exec <name> <cmd>      # Phase 2
 From the repo root:
 
 ```bash
-uv sync                # install deps + editable package
-uv run nursery validate examples/agents/example.yaml
+uv sync                                # install deps + editable package
+uv run nursery spawn examples/agents/gemma4-layla.yaml
 ```
 
 Or install as a tool (no repo required):
 
 ```bash
-uv tool install .                               # from a clone
+uv tool install .                                        # from a clone
 uv tool install git+https://github.com/ZetiMente/nursery  # direct from GitHub
-nursery validate path/to/agent.yaml
+nursery spawn path/to/agent.yaml
 ```
 
 Python 3.10+ required. Dependencies (`pyyaml`, `jsonschema`) install automatically.
 
-## Layout
+## Host profiles
+
+`spawn` reads the spec's `host` field (`openclaw` | `hermes` | `pi`) to pick the default image tag and baseline docker args. Override with `--host <name>`.
+
+| Host      | Default image               | Extra docker args                                    |
+|-----------|-----------------------------|------------------------------------------------------|
+| openclaw  | `nursery/agent:openclaw`    | `--add-host=host.docker.internal:host-gateway`       |
+| hermes    | `nursery/agent:base`        | `--add-host=host.docker.internal:host-gateway`       |
+| pi        | `nursery/agent:base`        | `--add-host=host.docker.internal:host-gateway`       |
+
+## Conventions
+
+Every Nursery-managed container gets these labels so lifecycle commands can find them safely:
 
 ```
-cli/
-└── src/
-    └── nursery_cli/
-        ├── __init__.py
-        └── _cli.py        # argparse + commands live here
+nursery.managed=true
+nursery.host=<openclaw|hermes|pi>
+nursery.name=<agent-name-from-spec>
 ```
 
-Build config (`pyproject.toml`) lives at the repo root.
+The container is named `nursery-<agent-name>` by default (override with `--name`).
 
-## Design Notes
+On first spawn, the CLI creates under the workspace:
 
-- Thin wrapper over Docker + host adapter hooks (once Phase 2+ lands).
-- State lives on the host filesystem, not in the CLI itself. Reinstalling should not lose agents.
-- Should work identically on a laptop, a server, or a Pi.
-- Single `pyproject.toml` at the repo root; the schema in `spec/` is force-included into the wheel so installed users don't need the repo.
+```
+<workspace>/
+├── .nursery/
+│   ├── spec/
+│   │   ├── agent.yaml         # Staged copy with normalized paths
+│   │   └── soul.md            # Copied from spec['soul'] for stable mount
+│   └── secrets/               # Empty by default; populated per-agent by operator
+└── (workspace content the agent writes over time)
+```
+
+This keeps the container's view (`/spec/agent.yaml`, `/spec/soul.md`, `/run/secrets/*`, `/workspace`) uniform across hosts, regardless of where the original files live on the host filesystem.
+
+## Sudo note
+
+If the current user is not in the `docker` group, the CLI falls back to `sudo docker` and prints a one-line notice on stderr. To drop that, add your user:
+
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+```
 
 ## Status
 
-🐥 Phase 1 complete: `validate` works, package installs cleanly via `uv`.
-Spawn / lifecycle commands come in Phase 2.
+🐥 Phase 2 essentials complete. `validate`, `spawn`, `ps`, `stop`, `rm`, `logs` all working.
+`start`, `exec`, `inspect` come when actually needed.
