@@ -77,6 +77,7 @@ Real inference arrives in Phase 2b.
 ## Design Notes
 
 - **Layered images.** `base` is the shared runtime; per-host images layer on top. Keeps build cache efficient.
+- **`uv` for dependencies.** The base image uses a multi-stage build. Stage 1 uses `uv sync --frozen` against `agent/pyproject.toml` + `agent/uv.lock` for locked, reproducible installs. Stage 2 is a clean slim image that only carries the resulting venv — `uv` itself is not in the final image.
 - **Non-root user.** Container runs as `nursery` (UID 1000) for bind-mount safety.
 - **Tini as PID 1.** Proper signal forwarding and zombie reaping.
 - **Secrets never baked.** Images are build-time-deterministic. Secrets arrive only at run time via mount.

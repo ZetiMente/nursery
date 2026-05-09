@@ -1,0 +1,30 @@
+[project]
+name = "nursery-agent"
+version = "0.1.0"
+description = "Runtime that executes inside a Nursery agent container."
+readme = "../README.md"
+license = { file = "../LICENSE" }
+requires-python = ">=3.12"
+authors = [
+    { name = "Matthew Polonia" },
+]
+keywords = ["ai", "agents", "docker", "openclaw", "nursery"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "pyyaml>=6.0,<7",
+    "jsonschema>=4.20,<5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nursery_agent"]
