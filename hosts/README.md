@@ -4,11 +4,13 @@ A **host** is the environment an agent runs inside. Each host has its own gatewa
 
 ## Supported Hosts
 
-| Host       | Description                                                       | Status |
-|------------|-------------------------------------------------------------------|--------|
-| `openclaw` | Runs inside an existing OpenClaw gateway (multi-agent, channels). | 🐣 (image + spawn profile; gateway integration Phase 5) |
-| `hermes`   | Placeholder for a non-OpenClaw gateway. Defaults are provisional. | 🥚 (provisional profile, no dedicated image) |
-| `pi`       | Bare Raspberry Pi with no gateway framework. Agent as a service.  | 🐣 (image + spawn profile; HTTP-only interface) |
+| Host       | Description                                                                | Status |
+|------------|----------------------------------------------------------------------------|--------|
+| `openclaw` | Runs inside an existing [OpenClaw](https://github.com/openclaw/openclaw) gateway. | 🐣 (image + spawn profile; gateway integration Phase 5) |
+| `hermes`   | Runs alongside a [Hermes Agent](https://hermes-agent.nousresearch.com/) gateway (Nous Research). | 🐣 (profile ready; dedicated image + integration TBD) |
+| `pi`       | Bare Raspberry Pi with no gateway framework. Agent as a service.           | 🐣 (image + spawn profile; HTTP-only interface) |
+
+See [`openclaw/`](./openclaw/), [`hermes/`](./hermes/), and [`pi/`](./pi/) for per-host details.
 
 See [`openclaw/`](./openclaw/), [`hermes/`](./hermes/), and [`pi/`](./pi/) for per-host details.
 

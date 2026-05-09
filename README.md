@@ -255,8 +255,8 @@ No promises. These live here so they don't get lost.
 
 ## Target Runtimes
 
-- **OpenClaw** — open-source agent framework.
-- **Hermes** — (to be defined)
+- **[OpenClaw](https://github.com/openclaw/openclaw)** — open-source agent framework.
+- **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — self-improving agent framework by [Nous Research](https://nousresearch.com). Sibling of OpenClaw with a 15+ platform messaging gateway.
 - **Pi** — bare Raspberry Pi deployments, no heavyweight framework required.
 
 ## Status

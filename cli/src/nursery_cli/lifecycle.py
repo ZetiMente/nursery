@@ -97,26 +97,27 @@ HOST_PROFILES: dict[str, HostProfile] = {
     ),
 
     # ------------------------------------------------------------------
-    # Hermes: PROVISIONAL. Name reserved for a non-OpenClaw gateway that
-    # we haven't specified yet. Treated as 'openclaw but different
-    # gateway URL' until the design is nailed down.
+    # Hermes: Nous Research's agent framework. Direct sibling of OpenClaw —
+    # persistent memory, skills, messaging gateway (Telegram, Discord, Slack,
+    # WhatsApp, Signal, and more). API server defaults to localhost:8642.
+    # Agents here live alongside a `hermes gateway` process on the host.
     # ------------------------------------------------------------------
     "hermes": HostProfile(
         name="hermes",
-        image_tag="base",  # no hermes image exists yet; fall back to base
-        description="(provisional) Non-OpenClaw gateway — design TBD.",
+        image_tag="base",  # No dedicated image yet; inherits base. Own Dockerfile later.
+        description="Agents alongside a Hermes (Nous Research) gateway on the host.",
         extra_run_args=(
             "--add-host=host.docker.internal:host-gateway",
         ),
         default_env=(
             ("NURSERY_HOST", "hermes"),
-            ("NURSERY_GATEWAY_URL", "http://host.docker.internal:7771"),
+            ("NURSERY_GATEWAY_URL", "http://host.docker.internal:8642"),
             ("NURSERY_OLLAMA_URL", "http://host.docker.internal:11434"),
         ),
         publish_port=None,
         default_memory=None,
         default_cpus=None,
-        provisional=True,
+        provisional=False,
     ),
 
     # ------------------------------------------------------------------
