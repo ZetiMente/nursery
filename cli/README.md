@@ -11,6 +11,7 @@ nursery ps [-a]                        # List Nursery-managed containers
 nursery stop <agent-name>              # Stop a running agent (workspace persists)
 nursery rm <agent-name>                # Remove a container (workspace persists)
 nursery logs <agent-name> [-f] [-n N]  # Tail container logs
+nursery hosts                          # List available host profiles
 nursery --version
 nursery --help
 ```
@@ -45,13 +46,19 @@ Python 3.10+ required. Dependencies (`pyyaml`, `jsonschema`) install automatical
 
 ## Host profiles
 
-`spawn` reads the spec's `host` field (`openclaw` | `hermes` | `pi`) to pick the default image tag and baseline docker args. Override with `--host <name>`.
+`spawn` reads the spec's `host` field (`openclaw` | `hermes` | `pi`) to pick the default image tag, environment, and port-publishing behavior. Override with `--host <name>`.
 
-| Host      | Default image               | Extra docker args                                    |
-|-----------|-----------------------------|------------------------------------------------------|
-| openclaw  | `nursery/agent:openclaw`    | `--add-host=host.docker.internal:host-gateway`       |
-| hermes    | `nursery/agent:base`        | `--add-host=host.docker.internal:host-gateway`       |
-| pi        | `nursery/agent:base`        | `--add-host=host.docker.internal:host-gateway`       |
+Run `nursery hosts` for a live listing.
+
+| Host      | Image                     | Default env                                    | Port publish | Status       |
+|-----------|---------------------------|------------------------------------------------|--------------|--------------|
+| openclaw  | `nursery/agent:openclaw`  | `NURSERY_GATEWAY_URL=http://host:7770`         | (none, gateway routes) | ready |
+| hermes    | `nursery/agent:base`      | `NURSERY_GATEWAY_URL=http://host:7771`         | (none) | **provisional** |
+| pi        | `nursery/agent:base`      | `NURSERY_OLLAMA_URL=http://host:11434`         | `7860:7860`  | ready |
+
+All three inject `NURSERY_HOST=<profile-name>` and add `--add-host=host.docker.internal:host-gateway` so the container can reach host services on Linux.
+
+Spec-level `environment:` entries override profile defaults. Spec-level `resources:` overrides profile memory/cpu defaults.
 
 ## Conventions
 

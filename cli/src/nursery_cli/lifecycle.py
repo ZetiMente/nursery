@@ -35,9 +35,36 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class HostProfile:
+    """Baseline configuration for a host runtime.
+
+    A HostProfile captures what Nursery should assume about an environment
+    where an agent will run. Different hosts have different gateways,
+    different Ollama conventions, different sensible defaults.
+
+    Fields:
+      name            Identifier used in specs (host: <name>) and --host.
+      image_tag       Default image tag under the 'nursery/agent' repo.
+      description     One-line human summary, printed by 'nursery hosts'.
+      extra_run_args  Baseline docker-run args (networking, etc.).
+      default_env     Extra env vars injected into every agent on this host.
+                      Spec-level 'environment' still overrides these.
+      publish_port    If set, -p <host_port>:7860 is added automatically.
+                      None means network-only / gateway routes to the container.
+      default_memory  Default --memory if the spec doesn't specify.
+      default_cpus    Default --cpus if the spec doesn't specify.
+      provisional     True for profiles whose design isn't finalized. A warning
+                      is printed when the user spawns against a provisional host.
+    """
+
     name: str
-    image_tag: str               # default image tag for this host
-    extra_run_args: tuple[str, ...]  # baseline docker-run args for this host
+    image_tag: str
+    description: str
+    extra_run_args: tuple[str, ...] = ()
+    default_env: tuple[tuple[str, str], ...] = ()
+    publish_port: int | None = None
+    default_memory: str | None = None
+    default_cpus: float | None = None
+    provisional: bool = False
 
     @property
     def image(self) -> str:
@@ -45,21 +72,73 @@ class HostProfile:
 
 
 HOST_PROFILES: dict[str, HostProfile] = {
+    # ------------------------------------------------------------------
+    # OpenClaw: agents run alongside an OpenClaw gateway on the same host.
+    # The gateway is expected to be reachable at host.docker.internal:7770.
+    # An Ollama daemon is typically also on the host.
+    # ------------------------------------------------------------------
     "openclaw": HostProfile(
         name="openclaw",
         image_tag="openclaw",
-        # Let the container reach a host-side Ollama / OpenClaw gateway on Linux.
-        extra_run_args=("--add-host=host.docker.internal:host-gateway",),
+        description="Agents alongside an OpenClaw gateway. Gateway + Ollama on host.",
+        extra_run_args=(
+            "--add-host=host.docker.internal:host-gateway",
+        ),
+        default_env=(
+            ("NURSERY_HOST", "openclaw"),
+            ("NURSERY_GATEWAY_URL", "http://host.docker.internal:7770"),
+            ("NURSERY_OLLAMA_URL", "http://host.docker.internal:11434"),
+        ),
+        # OpenClaw gateway routes; no need to publish the agent's port.
+        publish_port=None,
+        default_memory=None,
+        default_cpus=None,
+        provisional=False,
     ),
+
+    # ------------------------------------------------------------------
+    # Hermes: PROVISIONAL. Name reserved for a non-OpenClaw gateway that
+    # we haven't specified yet. Treated as 'openclaw but different
+    # gateway URL' until the design is nailed down.
+    # ------------------------------------------------------------------
     "hermes": HostProfile(
         name="hermes",
-        image_tag="base",  # placeholder until a dedicated hermes image exists
-        extra_run_args=("--add-host=host.docker.internal:host-gateway",),
+        image_tag="base",  # no hermes image exists yet; fall back to base
+        description="(provisional) Non-OpenClaw gateway — design TBD.",
+        extra_run_args=(
+            "--add-host=host.docker.internal:host-gateway",
+        ),
+        default_env=(
+            ("NURSERY_HOST", "hermes"),
+            ("NURSERY_GATEWAY_URL", "http://host.docker.internal:7771"),
+            ("NURSERY_OLLAMA_URL", "http://host.docker.internal:11434"),
+        ),
+        publish_port=None,
+        default_memory=None,
+        default_cpus=None,
+        provisional=True,
     ),
+
+    # ------------------------------------------------------------------
+    # Pi (bare): no gateway. The agent is the service. Published on the
+    # host on port 7860 by default so you can curl it directly. Resources
+    # capped conservatively.
+    # ------------------------------------------------------------------
     "pi": HostProfile(
         name="pi",
         image_tag="base",
-        extra_run_args=("--add-host=host.docker.internal:host-gateway",),
+        description="Bare Pi / edge. No gateway. Agent HTTP published to host.",
+        extra_run_args=(
+            "--add-host=host.docker.internal:host-gateway",
+        ),
+        default_env=(
+            ("NURSERY_HOST", "pi"),
+            ("NURSERY_OLLAMA_URL", "http://host.docker.internal:11434"),
+        ),
+        publish_port=7860,
+        default_memory="6g",
+        default_cpus=4.0,
+        provisional=False,
     ),
 }
 
@@ -177,6 +256,7 @@ def _build_run_args(
     name: str,
     image: str,
     detach: bool,
+    publish_port: int | None,
 ) -> list[str]:
     args: list[str] = [
         "run",
@@ -189,27 +269,38 @@ def _build_run_args(
         "-v", f"{staged_spec_dir}:/spec:ro",
         "-v", f"{workspace}:/workspace",
         "-v", f"{secrets_dir}:/run/secrets:ro",
-        # Environment
+        # Core runtime conventions
         "-e", "NURSERY_SPEC_PATH=/spec/agent.yaml",
         "-e", "NURSERY_WORKSPACE=/workspace",
         "-e", "NURSERY_SECRETS_DIR=/run/secrets",
     ]
 
-    # Non-secret environment from the spec
-    for k, v in (spec.get("environment") or {}).items():
+    # Host profile env first (spec-level 'environment' below can override).
+    spec_env = {k: str(v) for k, v in (spec.get("environment") or {}).items()}
+    for k, v in host.default_env:
+        if k not in spec_env:
+            args += ["-e", f"{k}={v}"]
+
+    # Spec-level environment
+    for k, v in spec_env.items():
         args += ["-e", f"{k}={v}"]
 
-    # Resources
+    # Resources — spec wins, then host profile defaults, then Docker defaults.
     resources = spec.get("resources") or {}
-    if "memory" in resources:
-        args += ["--memory", str(resources["memory"])]
-    if "cpus" in resources:
-        args += ["--cpus", str(resources["cpus"])]
+    memory = resources.get("memory", host.default_memory)
+    cpus = resources.get("cpus", host.default_cpus)
+    if memory:
+        args += ["--memory", str(memory)]
+    if cpus is not None:
+        args += ["--cpus", str(cpus)]
 
-    # Host-specific baseline
+    # Port publishing
+    if publish_port is not None:
+        args += ["-p", f"{publish_port}:7860"]
+
+    # Host-specific baseline (--add-host, etc.)
     args += list(host.extra_run_args)
 
-    # Detach or foreground
     if detach:
         args += ["-d"]
 
@@ -267,6 +358,12 @@ def cmd_spawn(args: argparse.Namespace) -> int:
     host = HOST_PROFILES[host_name]
     image = args.image or host.image
 
+    if host.provisional:
+        sys.stderr.write(
+            f"note: host profile '{host.name}' is PROVISIONAL — defaults may change.\n"
+            f"      {host.description}\n"
+        )
+
     workspace = _expand(spec["workspace"])
     _ensure_dir(workspace, "workspace")
 
@@ -277,6 +374,14 @@ def cmd_spawn(args: argparse.Namespace) -> int:
 
     container_name = args.name or f"nursery-{spec['name']}"
 
+    # Publish port: CLI flag > profile default > none.
+    if args.publish_port is not None:
+        publish_port: int | None = args.publish_port
+    elif args.no_publish:
+        publish_port = None
+    else:
+        publish_port = host.publish_port
+
     run_args = _build_run_args(
         spec,
         host,
@@ -286,6 +391,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         name=container_name,
         image=image,
         detach=not args.foreground,
+        publish_port=publish_port,
     )
 
     docker_prefix = ["docker"] if args.dry_run else _resolve_docker_prefix()
@@ -295,14 +401,19 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         print("# would run:")
         print(" \\\n  ".join(full_cmd))
         print()
+        print(f"# host profile: {host.name} ({host.description})")
         print(f"# workspace: {workspace}")
         print(f"# secrets:   {secrets_dir}")
         print(f"# staged spec: {staged_spec_dir}")
+        if publish_port:
+            print(f"# published: http://localhost:{publish_port}")
         return 0
 
     print(f"==> spawning '{spec['name']}' on host '{host.name}' (image {image})")
     print(f"    workspace: {workspace}")
     print(f"    container: {container_name}")
+    if publish_port:
+        print(f"    published: http://localhost:{publish_port}")
     try:
         result = subprocess.run(full_cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
@@ -415,6 +526,17 @@ def cmd_logs(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def cmd_hosts(args: argparse.Namespace) -> int:
+    """List available host profiles."""
+    print(f"{'NAME':<10} {'IMAGE':<28} {'PORT':<6} {'STATUS':<14} DESCRIPTION")
+    for name in sorted(HOST_PROFILES):
+        h = HOST_PROFILES[name]
+        status = "provisional" if h.provisional else "ready"
+        port = str(h.publish_port) if h.publish_port else "-"
+        print(f"{h.name:<10} {h.image:<28} {port:<6} {status:<14} {h.description}")
+    return 0
+
+
 def register_subparsers(subparsers) -> None:  # type: ignore[no-untyped-def]
     sp_spawn = subparsers.add_parser("spawn", help="Spawn an agent container from a spec.")
     sp_spawn.add_argument("spec", help="Path to an agent spec (.yaml, .yml, or .json).")
@@ -422,6 +544,8 @@ def register_subparsers(subparsers) -> None:  # type: ignore[no-untyped-def]
     sp_spawn.add_argument("--image", help="Override image (defaults from host profile).")
     sp_spawn.add_argument("--name", help="Override container name (default nursery-<agent-name>).")
     sp_spawn.add_argument("--secrets-dir", help="Override secrets directory (default workspace/.nursery/secrets).")
+    sp_spawn.add_argument("--publish-port", type=int, help="Publish agent HTTP on host port (overrides host profile default).")
+    sp_spawn.add_argument("--no-publish", action="store_true", help="Do not publish the agent's port to the host.")
     sp_spawn.add_argument("--foreground", action="store_true", help="Run attached instead of detached.")
     sp_spawn.add_argument("--dry-run", action="store_true", help="Print the docker command instead of running it.")
     sp_spawn.set_defaults(func=cmd_spawn)
@@ -444,3 +568,6 @@ def register_subparsers(subparsers) -> None:  # type: ignore[no-untyped-def]
     sp_logs.add_argument("-f", "--follow", action="store_true", help="Follow output.")
     sp_logs.add_argument("-n", "--tail", type=int, help="Show only last N lines.")
     sp_logs.set_defaults(func=cmd_logs)
+
+    sp_hosts = subparsers.add_parser("hosts", help="List available host profiles.")
+    sp_hosts.set_defaults(func=cmd_hosts)
