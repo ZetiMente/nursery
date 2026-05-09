@@ -146,6 +146,10 @@ def main(argv: list[str] | None = None) -> int:
     sp_val.add_argument("spec", help="Path to an agent spec (.yaml, .yml, or .json).")
     sp_val.set_defaults(func=cmd_validate)
 
+    # Lifecycle commands: spawn, ps, stop, rm, logs
+    from nursery_cli.lifecycle import register_subparsers as _register_lifecycle
+    _register_lifecycle(subparsers)
+
     args = parser.parse_args(argv)
     return args.func(args)
 

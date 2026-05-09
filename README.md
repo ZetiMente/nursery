@@ -158,17 +158,21 @@ Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
 
 ---
 
-### Phase 2 — First Spawn 🥚
+### Phase 2 — First Spawn 🐥
 
 *One agent spawns from a spec and runs in a container. End-to-end on localhost.*
 
-- [ ] Base Docker image (`nursery/agent:base`)
-- [ ] Model abstraction: container reads `MODEL=` and picks a provider
-- [ ] `nursery spawn <spec.yaml>` — builds (if needed), mounts workspace, starts container
-- [ ] `nursery ps` / `nursery stop` / `nursery logs`
-- [ ] Agent can read its SOUL.md and workspace from the mounted volume
+- [x] Base Docker image (`nursery/agent:base`)
+- [x] OpenClaw image variant (`nursery/agent:openclaw`)
+- [x] Model abstraction: container reads `model:` and picks a backend
+- [x] Ollama backend (`think=true`, `num_predict=-1`, Gemma-tuned sampling)
+- [x] Echo backend for plumbing tests
+- [x] `nursery spawn <spec.yaml>` — builds, mounts workspace, starts container
+- [x] `nursery ps` / `nursery stop` / `nursery logs` / `nursery rm`
+- [x] Host profiles: `openclaw`, `hermes`, `pi`
+- [x] Agent reads SOUL.md, verifies workspace, enumerates secrets
 
-**Done when:** `nursery spawn example.yaml` brings up a containerized agent that loads its own soul.
+**Done when:** `nursery spawn example.yaml` brings up a containerized agent that loads its own soul. ✓
 
 ---
 

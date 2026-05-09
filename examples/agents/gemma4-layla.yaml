@@ -4,6 +4,7 @@
 
 name: layla-gemma4
 image: nursery/agent:openclaw
+host: openclaw
 # provider=ollama, model=batiai/gemma4-e2b:q4
 model: ollama/batiai/gemma4-e2b:q4
 soul: ../souls/layla/SOUL.md
