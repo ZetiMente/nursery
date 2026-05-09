@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ZetiMente/nursery/blob/main/spec/agent.schema.json",
+  "title": "Nursery Agent Specification",
+  "description": "Declarative specification for a Nursery agent. One spec describes one reproducible agent. See https://github.com/ZetiMente/nursery for context.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "image", "model", "workspace"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique identifier for this agent on its host. Used for container naming, routing, and logs.",
+      "pattern": "^[a-z][a-z0-9-]{1,62}$",
+      "minLength": 2,
+      "maxLength": 63
+    },
+    "image": {
+      "type": "string",
+      "description": "Container image the agent runs in. Typically a Nursery base image plus any agent-specific layers.",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "description": "Model identifier in the form <provider>/<model>. The container translates this to a real inference client at runtime.",
+      "pattern": "^[a-z0-9_.-]+/[a-zA-Z0-9_./:-]+$"
+    },
+    "soul": {
+      "type": "string",
+      "description": "Path to the agent's persona file (typically SOUL.md). Resolved relative to the spec file."
+    },
+    "workspace": {
+      "type": "string",
+      "description": "Path on the host where the agent's persistent workspace lives. Mounted into the container. This is the agent's identity — it survives respawns."
+    },
+    "secrets": {
+      "type": "array",
+      "description": "Named secrets to mount into the container at runtime. Resolved by the host to files under /run/secrets/ inside the agent. Agents reference secrets by name; values never live in the spec.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"
+      },
+      "uniqueItems": true
+    },
+    "channels": {
+      "type": "array",
+      "description": "Channels the agent connects to (e.g. telegram, discord, signal). The host gateway handles routing.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "Capabilities the agent may exercise (e.g. gmail, calendar, tasks). Enforced by the host adapter, not the agent itself.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "resources": {
+      "type": "object",
+      "description": "Optional resource limits passed to the container runtime.",
+      "additionalProperties": false,
+      "properties": {
+        "memory": {
+          "type": "string",
+          "description": "Memory limit (Docker format, e.g. '512m', '2g').",
+          "pattern": "^[0-9]+(b|k|m|g)?$"
+        },
+        "cpus": {
+          "type": "number",
+          "description": "CPU limit in fractional cores (e.g. 0.5, 1.0, 2.0).",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Optional non-secret environment variables passed to the agent at runtime. Do NOT put secrets here — use the 'secrets' field instead.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "labels": {
+      "type": "object",
+      "description": "Optional key/value metadata. Not interpreted by Nursery itself — purely for the operator's bookkeeping.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

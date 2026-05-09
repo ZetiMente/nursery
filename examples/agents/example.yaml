@@ -1,33 +1,41 @@
-# Example agent spec.
-# This file is safe to commit — it references secrets by name, never by value.
+# Example agent spec — safe to commit (references secrets by name, never by value).
+# Validate with:  nursery validate examples/agents/example.yaml
 
+# Required
 name: example
 image: nursery/agent:latest
 model: anthropic/claude-opus
-
-# Path to the persona file. Can be relative to this spec.
-soul: ../souls/example/SOUL.md
-
-# Where the agent's memory and state live on the host.
-# Survives container restarts.
 workspace: ~/nursery/agents/example/workspace
 
-# Named secrets. Resolved by the host to files under /run/secrets/ inside the container.
-# Must be provisioned on the host separately — see docs/secrets.md.
+# Optional but recommended
+soul: ../souls/example/SOUL.md
+
+# Named secrets. Resolved by the host to files under /run/secrets/ in the container.
+# Provision them on the host separately — see docs/secrets.md.
 secrets:
   - google-oauth
 
-# Channels the agent connects to. Host adapter handles routing.
+# Channels the agent connects to (host gateway handles routing).
 channels:
   - telegram
 
-# Capabilities the agent can exercise. Enforced by the host adapter.
+# Capabilities enforced by the host adapter.
 capabilities:
   - gmail
   - calendar
   - tasks
 
-# Resource limits (optional).
+# Optional resource limits.
 resources:
   memory: 512m
   cpus: 1.0
+
+# Optional non-secret environment variables.
+# NEVER put secrets here — use the 'secrets' field instead.
+environment:
+  LOG_LEVEL: info
+
+# Optional free-form metadata for the operator (not interpreted by Nursery).
+labels:
+  owner: example-owner
+  purpose: demo

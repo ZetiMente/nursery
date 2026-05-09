@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""nursery — turnkey reproducible AI agents
+
+Usage:
+  nursery validate <spec.yaml>     Lint an agent spec against the schema.
+  nursery --help                   Show this help.
+  nursery --version                Show version.
+
+Phase 1 scope: validate only. spawn/stop/ps/etc. come in later phases.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+VERSION = "0.1.0"
+
+# Locate the schema relative to this file. When installed, this will need
+# a proper package resource lookup — fine for Phase 1.
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+SCHEMA_PATH = REPO_ROOT / "spec" / "agent.schema.json"
+
+
+def _load_yaml(path: Path) -> dict:
+    """Parse a YAML (or JSON) file into a dict. Errors bubble up."""
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        # Allow JSON-only validation if PyYAML isn't installed.
+        if path.suffix.lower() == ".json":
+            return json.loads(path.read_text())
+        sys.stderr.write(
+            "error: PyYAML is required to read YAML specs.\n"
+            "       Install it with: pip install pyyaml\n"
+            "       (or use a .json spec file)\n"
+        )
+        sys.exit(2)
+
+    with path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def _load_schema() -> dict:
+    if not SCHEMA_PATH.exists():
+        sys.stderr.write(f"error: schema not found at {SCHEMA_PATH}\n")
+        sys.exit(2)
+    return json.loads(SCHEMA_PATH.read_text())
+
+
+def _validate(spec: dict, schema: dict) -> list[str]:
+    """Validate spec against schema. Returns a list of human-readable errors."""
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError:
+        sys.stderr.write(
+            "error: jsonschema is required for validation.\n"
+            "       Install it with: pip install jsonschema\n"
+        )
+        sys.exit(2)
+
+    validator = Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(spec), key=lambda e: list(e.absolute_path))
+    out: list[str] = []
+    for err in errors:
+        path = ".".join(str(p) for p in err.absolute_path) or "<root>"
+        out.append(f"  at {path}: {err.message}")
+    return out
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    path = Path(args.spec).resolve()
+    if not path.exists():
+        sys.stderr.write(f"error: spec file not found: {path}\n")
+        return 2
+
+    try:
+        spec = _load_yaml(path)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"error: failed to parse {path}: {e}\n")
+        return 2
+
+    if not isinstance(spec, dict):
+        sys.stderr.write("error: spec must be a mapping (key/value structure)\n")
+        return 2
+
+    schema = _load_schema()
+    errors = _validate(spec, schema)
+
+    if errors:
+        print(f"✗ {path} — {len(errors)} issue(s):")
+        for e in errors:
+            print(e)
+        return 1
+
+    name = spec.get("name", "<unnamed>")
+    print(f"✓ {path}")
+    print(f"  agent: {name}")
+    print(f"  image: {spec.get('image')}")
+    print(f"  model: {spec.get('model')}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="nursery",
+        description="Turnkey reproducible AI agents.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"nursery {VERSION}",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    sp_val = subparsers.add_parser(
+        "validate",
+        help="Validate an agent spec against the schema.",
+    )
+    sp_val.add_argument("spec", help="Path to an agent spec (.yaml, .yml, or .json).")
+    sp_val.set_defaults(func=cmd_validate)
+
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
