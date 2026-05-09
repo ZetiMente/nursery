@@ -1,7 +1,13 @@
-# Example Nursery agent spec for a Hermes deployment.
-# PROVISIONAL: the Hermes host profile has defaults that may change once
-# Hermes' design is fleshed out. See docs/hermes.md (TODO) or the
-# hosts/hermes/README.md for current assumptions.
+# Example Nursery agent spec for Hermes (Nous Research's agent framework).
+# Hermes is the sibling of OpenClaw — persistent memory, skills,
+# messaging gateway. API server listens on localhost:8642 by default.
+#
+# Validate:  uv run nursery validate examples/agents/hermes-layla.yaml
+# Spawn:     uv run nursery spawn examples/agents/hermes-layla.yaml
+#
+# Requires: Hermes Agent installed on the host.
+#   curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+#   hermes gateway &   # start the messaging gateway
 
 name: layla-hermes
 image: nursery/agent:base
@@ -16,8 +22,9 @@ resources:
 
 environment:
   LOG_LEVEL: info
-  # If your Hermes gateway is elsewhere, override:
-  # NURSERY_GATEWAY_URL: http://gateway.local:7771
+  # If your Hermes gateway lives elsewhere, override:
+  # NURSERY_GATEWAY_URL: http://gateway.local:8642
 
 labels:
-  status: provisional
+  framework: hermes-agent
+  author: nous-research
