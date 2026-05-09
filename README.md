@@ -140,15 +140,15 @@ Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
 
 ---
 
-### Phase 1 — First Breath 🥚
+### Phase 1 — First Breath 🐥
 
 *An agent spec exists and can be validated.*
 
-- [ ] Write the agent config JSON Schema (`spec/agent.schema.json`)
-- [ ] `nursery validate <spec.yaml>` — lints a spec file
-- [ ] At least one real example spec that passes validation
+- [x] Write the agent config JSON Schema (`spec/agent.schema.json`)
+- [x] `nursery validate <spec.yaml>` — lints a spec file
+- [x] At least one real example spec that passes validation
 
-**Done when:** you can write `agent.yaml` and the tool tells you if it's valid.
+**Done when:** you can write `agent.yaml` and the tool tells you if it's valid. ✓
 
 ---
 
