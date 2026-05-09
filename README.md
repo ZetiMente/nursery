@@ -122,18 +122,126 @@ These are the decisions that actually matter. The Dockerfile is easy; these are 
 
 ## Roadmap
 
-| Priority | Item                                                           | Status |
-|----------|----------------------------------------------------------------|--------|
-| 1        | Agent config schema (YAML)                                     | 🥚      |
-| 2        | Base Docker image                                              | 🥚      |
-| 3        | `nursery spawn <config>` CLI                                   | 🥚      |
-| 4        | Secrets mount convention                                       | 🥚      |
-| 5        | Template / fork system                                         | 🥚      |
-| 6        | OpenClaw host adapter                                          | 🥚      |
-| 7        | Hermes host adapter                                            | 🥚      |
-| 8        | Pi-native bootstrap                                            | 🥚      |
+Nursery grows in phases. Each phase has one goal: prove the next layer works before stacking on it.
 
-🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
+Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
+
+### Phase 0 — Hatching 🐣
+
+*The idea exists. This repo exists. The thesis is written down.*
+
+- [x] Write the README
+- [x] Scaffold the directory structure
+- [x] MIT license + SECURITY.md
+- [x] Architecture / protocol / secrets / identity notes
+- [ ] Decide the agent ↔ host protocol (see [`docs/protocol.md`](./docs/protocol.md))
+
+**Done when:** the design is coherent enough to build against.
+
+---
+
+### Phase 1 — First Breath 🥚
+
+*An agent spec exists and can be validated.*
+
+- [ ] Write the agent config JSON Schema (`spec/agent.schema.json`)
+- [ ] `nursery validate <spec.yaml>` — lints a spec file
+- [ ] At least one real example spec that passes validation
+
+**Done when:** you can write `agent.yaml` and the tool tells you if it's valid.
+
+---
+
+### Phase 2 — First Spawn 🥚
+
+*One agent spawns from a spec and runs in a container. End-to-end on localhost.*
+
+- [ ] Base Docker image (`nursery/agent:base`)
+- [ ] Model abstraction: container reads `MODEL=` and picks a provider
+- [ ] `nursery spawn <spec.yaml>` — builds (if needed), mounts workspace, starts container
+- [ ] `nursery ps` / `nursery stop` / `nursery logs`
+- [ ] Agent can read its SOUL.md and workspace from the mounted volume
+
+**Done when:** `nursery spawn example.yaml` brings up a containerized agent that loads its own soul.
+
+---
+
+### Phase 3 — First Conversation 🥚
+
+*An agent receives a message, thinks, and replies. One channel, one agent.*
+
+- [ ] Host gateway process (routes messages between channels and agents)
+- [ ] Agent ↔ gateway protocol implemented (decision made in Phase 0)
+- [ ] Telegram channel adapter
+- [ ] Agent state persistence (memory survives respawn)
+
+**Done when:** you can message a Nursery agent on Telegram and get a reply.
+
+---
+
+### Phase 4 — First Swarm 🥚
+
+*Two agents running side-by-side with full isolation. The Layla/Lola problem solved.*
+
+- [ ] Per-agent secrets directory, mounted read-only, scoped to one container
+- [ ] Gateway routes messages to the right agent by name/channel
+- [ ] Cross-agent access is impossible by design (verify with a test)
+- [ ] Agent A crashing does not affect Agent B
+
+**Done when:** two agents with different OAuth tokens and personas coexist without stepping on each other.
+
+---
+
+### Phase 5 — First Host 🥚
+
+*Nursery runs inside OpenClaw.*
+
+- [ ] OpenClaw host adapter (`hosts/openclaw/`)
+- [ ] Migration path for an existing OpenClaw agent → Nursery spec
+- [ ] Documented setup for running Nursery on a Pi inside OpenClaw
+
+**Done when:** Layla and Lola both run as Nursery agents inside OpenClaw.
+
+---
+
+### Phase 6 — First Wild 🥚
+
+*Nursery runs outside OpenClaw's ecosystem.*
+
+- [ ] Hermes host adapter (`hosts/hermes/`)
+- [ ] Pi-native bootstrap (`hosts/pi/`) — no heavyweight framework required
+- [ ] A single agent portable across all three hosts without code changes
+
+**Done when:** the same agent spec runs on OpenClaw, Hermes, and a bare Pi.
+
+---
+
+### Phase 7 — First Fork 🥚
+
+*Templates and forks. New individuals from blueprints.*
+
+- [ ] `nursery fork <spec> --as <name>` creates a new individual (new workspace, same config)
+- [ ] Clear semantics for what's shared vs. unique (the identity problem)
+- [ ] Documentation and examples of intentional replication
+
+**Done when:** you can mass-produce agents from a template without any of them sharing identity.
+
+---
+
+### Phase ∞ — Horizon 🥚
+
+*Open-ended directions once the foundation is solid.*
+
+- Replication across hosts (move a running agent, preserve state)
+- Vaulted secret backends (HashiCorp Vault, age-encrypted files)
+- Local model integration (Llama, Gemma, others)
+- Multi-channel agents (one agent, many bots)
+- Agent-to-agent messaging (careful — see [`docs/identity.md`](./docs/identity.md))
+- Resource quotas, rate limiting, graceful degradation
+- Observability (metrics, traces, health endpoints)
+- A clean story for migrating / backing up workspaces
+
+No promises. These live here so they don't get lost.
 
 ## Target Runtimes
 
