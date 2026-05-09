@@ -1,0 +1,23 @@
+# Example Nursery agent spec for a Hermes deployment.
+# PROVISIONAL: the Hermes host profile has defaults that may change once
+# Hermes' design is fleshed out. See docs/hermes.md (TODO) or the
+# hosts/hermes/README.md for current assumptions.
+
+name: layla-hermes
+image: nursery/agent:base
+host: hermes
+model: ollama/batiai/gemma4-e2b:q4
+soul: ../souls/layla/SOUL.md
+workspace: ~/nursery/agents/layla-hermes/workspace
+
+resources:
+  memory: 6g
+  cpus: 4.0
+
+environment:
+  LOG_LEVEL: info
+  # If your Hermes gateway is elsewhere, override:
+  # NURSERY_GATEWAY_URL: http://gateway.local:7771
+
+labels:
+  status: provisional

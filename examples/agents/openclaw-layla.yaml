@@ -1,0 +1,22 @@
+# Example Nursery agent spec for OpenClaw.
+# Agent runs alongside an OpenClaw gateway, which routes channel messages.
+# Validate:  uv run nursery validate examples/agents/openclaw-layla.yaml
+# Spawn:     uv run nursery spawn examples/agents/openclaw-layla.yaml
+
+name: layla-openclaw
+image: nursery/agent:openclaw
+host: openclaw
+model: ollama/batiai/gemma4-e2b:q4
+soul: ../souls/layla/SOUL.md
+workspace: ~/nursery/agents/layla-openclaw/workspace
+
+resources:
+  memory: 6g
+  cpus: 4.0
+
+environment:
+  LOG_LEVEL: info
+
+labels:
+  hardware: raspberry-pi-4
+  quant: q4_k_m

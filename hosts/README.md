@@ -6,9 +6,17 @@ A **host** is the environment an agent runs inside. Each host has its own gatewa
 
 | Host       | Description                                                       | Status |
 |------------|-------------------------------------------------------------------|--------|
-| `openclaw` | Runs inside an existing OpenClaw gateway (multi-agent, channels). | 🥚      |
-| `hermes`   | *(to define)*                                                     | 🥚      |
-| `pi`       | Bare Raspberry Pi with no gateway framework.                      | 🥚      |
+| `openclaw` | Runs inside an existing OpenClaw gateway (multi-agent, channels). | 🐣 (image + spawn profile; gateway integration Phase 5) |
+| `hermes`   | Placeholder for a non-OpenClaw gateway. Defaults are provisional. | 🥚 (provisional profile, no dedicated image) |
+| `pi`       | Bare Raspberry Pi with no gateway framework. Agent as a service.  | 🐣 (image + spawn profile; HTTP-only interface) |
+
+See [`openclaw/`](./openclaw/), [`hermes/`](./hermes/), and [`pi/`](./pi/) for per-host details.
+
+Listing profiles from the CLI:
+
+```bash
+uv run nursery hosts
+```
 
 ## Adapter Interface (sketch)
 

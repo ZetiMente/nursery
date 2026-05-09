@@ -1,0 +1,22 @@
+# Example Nursery agent spec for a bare Pi deployment.
+# No gateway. The agent is the service. Published on host port 7860.
+# Validate:  uv run nursery validate examples/agents/pi-layla.yaml
+# Spawn:     uv run nursery spawn examples/agents/pi-layla.yaml
+
+name: layla-pi
+image: nursery/agent:base
+host: pi
+model: ollama/batiai/gemma4-e2b:q4
+soul: ../souls/layla/SOUL.md
+workspace: ~/nursery/agents/layla-pi/workspace
+
+resources:
+  memory: 6g
+  cpus: 4.0
+
+environment:
+  LOG_LEVEL: info
+
+labels:
+  hardware: raspberry-pi-4
+  quant: q4_k_m

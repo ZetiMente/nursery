@@ -1,44 +1,42 @@
 # OpenClaw Host Adapter
 
-Runs Nursery agents as containers alongside an existing OpenClaw gateway.
+Nursery agents running alongside an existing OpenClaw gateway.
 
 ## Status
 
-🐣 Phase 2a: the **container image** (`nursery/agent:openclaw`) exists. See [`../../docker/openclaw/`](../../docker/openclaw/).
+🐣 **Image available. Host-side adapter still Phase 5.**
 
-The *host-side* adapter (what runs on the OpenClaw gateway and coordinates agents) is not yet implemented. That's the Phase 5 deliverable.
+- `nursery/agent:openclaw` image exists — see [`../../docker/openclaw/`](../../docker/openclaw/).
+- `HostProfile` defaults are in place (see [`../../cli/src/nursery_cli/lifecycle.py`](../../cli/src/nursery_cli/lifecycle.py)).
+- The actual gateway-side integration (announcing agents, routing channel messages, etc.) is **Phase 5**.
 
-## What exists now (Phase 2a)
+## Profile defaults
 
-- `nursery/agent:openclaw` image: a ready-to-run agent container with OpenClaw-friendly defaults:
-  - `NURSERY_HOST=openclaw`
-  - `NURSERY_GATEWAY_URL=http://host.docker.internal:7770` (override at runtime)
-  - Label `nursery.host=openclaw` so host tooling can filter containers
+| Key | Value |
+|-----|-------|
+| Image | `nursery/agent:openclaw` |
+| `NURSERY_HOST` | `openclaw` |
+| `NURSERY_GATEWAY_URL` | `http://host.docker.internal:7770` |
+| `NURSERY_OLLAMA_URL` | `http://host.docker.internal:11434` |
+| Port publish | (none — gateway routes) |
+| Memory / CPU | Docker default (no host-profile cap) |
 
-## What's coming (Phase 5)
-
-- Register agents with the OpenClaw gateway when they spawn
-- Route inbound channel messages (Telegram, Discord, Signal, etc.) to the right agent container
-- Publish outbound replies back through OpenClaw's channel infrastructure
-- Handle OpenClaw-specific conventions (workspaces, session isolation, subagents)
-
-## Running one ad-hoc (Phase 2a)
+## Spawning an OpenClaw agent
 
 ```bash
-# Build (from repo root):
-docker/build.sh openclaw
+# From the repo root:
+uv run nursery spawn examples/agents/openclaw-layla.yaml
 
-# Run:
-docker run --rm -d \
-  --name my-agent \
-  -p 7860:7860 \
-  -v /path/to/spec:/spec:ro \
-  -v /path/to/workspace:/workspace \
-  -v /path/to/secrets:/run/secrets:ro \
-  nursery/agent:openclaw
-
-# Check health:
-curl http://localhost:7860/healthz
+# Verify:
+uv run nursery ps
+uv run nursery logs layla-openclaw --tail 20
 ```
 
-No inference yet — that arrives in Phase 2b. The container will echo any message you POST to `/message`.
+The container runs as `nursery-layla-openclaw`, labeled `nursery.host=openclaw`.
+
+## Coming in Phase 5
+
+- Register agents with the OpenClaw gateway on spawn.
+- Route inbound channel messages (Telegram, Discord, Signal, …) to the right agent container.
+- Publish outbound replies back through OpenClaw's channel infrastructure.
+- Handle OpenClaw-specific conventions (workspaces, session isolation, subagents).
