@@ -4,9 +4,35 @@
 #   nursery/agent:base      — this image. Generic runtime. Host-agnostic.
 #   nursery/agent:openclaw  — FROM base. Adds OpenClaw defaults.
 #
-# Phase 2a scope: boot, read spec, serve an HTTP endpoint. No real inference yet.
+# Uses uv for reproducible, locked Python deps via multi-stage build.
+# uv is only in the builder stage; the final image doesn't carry it.
 
-FROM python:3.12-slim-bookworm
+ARG PYTHON_VERSION=3.12
+
+# ==========================================================================
+# Stage 1: builder — install locked deps into a venv using uv.
+# ==========================================================================
+FROM ghcr.io/astral-sh/uv:0.11.12 AS uv
+
+FROM python:${PYTHON_VERSION}-slim-bookworm AS builder
+
+COPY --from=uv /uv /usr/local/bin/uv
+
+WORKDIR /build
+
+# Copy only dependency manifests first for optimal layer caching.
+COPY agent/pyproject.toml agent/uv.lock ./
+
+# Install locked deps into /opt/nursery/.venv. No project install (deps only).
+RUN uv sync --frozen --no-dev --no-install-project \
+      --python "python${PYTHON_VERSION}" \
+      --directory . \
+    && mv .venv /opt/nursery-venv
+
+# ==========================================================================
+# Stage 2: runtime — slim image with only what's needed at run time.
+# ==========================================================================
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 # -- Metadata --
 LABEL org.opencontainers.image.title="Nursery Agent (base)"
@@ -14,33 +40,30 @@ LABEL org.opencontainers.image.description="Base image for Nursery agents. Host-
 LABEL org.opencontainers.image.source="https://github.com/ZetiMente/nursery"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# -- System deps --
-# Slim base; install only what's needed. ca-certificates for TLS, tini for PID 1.
+# -- Runtime OS deps --
+# ca-certificates: TLS. tini: PID 1.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
       tini \
  && rm -rf /var/lib/apt/lists/*
 
-# -- User --
-# Run as non-root. UID 1000 matches typical host users for bind-mount compatibility.
+# -- Non-root user --
 RUN useradd --create-home --uid 1000 --shell /bin/bash nursery
 
-# -- Python deps --
-# Install minimal runtime deps. More model clients added in Phase 2b.
-RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir \
-      pyyaml==6.0.2 \
-      jsonschema==4.26.0
+# -- Bring in the pre-built venv from the builder --
+COPY --from=builder --chown=nursery:nursery /opt/nursery-venv /opt/nursery/.venv
 
-# -- Agent package --
-COPY --chown=nursery:nursery agent/src/nursery_agent /opt/nursery/nursery_agent
-ENV PYTHONPATH=/opt/nursery \
+# -- Agent source --
+COPY --chown=nursery:nursery agent/src/nursery_agent /opt/nursery/src/nursery_agent
+
+ENV PATH="/opt/nursery/.venv/bin:${PATH}" \
+    VIRTUAL_ENV="/opt/nursery/.venv" \
+    PYTHONPATH=/opt/nursery/src \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 # -- Mount points --
-# These are the conventions Nursery enforces. Host binds into these paths.
 RUN mkdir -p /spec /workspace /run/secrets \
  && chown -R nursery:nursery /spec /workspace
 
@@ -56,7 +79,6 @@ EXPOSE 7860
 USER nursery
 WORKDIR /workspace
 
-# tini cleans up orphaned processes and forwards signals properly.
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["python", "-m", "nursery_agent.entrypoint"]
 
