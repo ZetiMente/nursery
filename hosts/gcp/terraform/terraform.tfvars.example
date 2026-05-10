@@ -1,0 +1,22 @@
+# Copy this to terraform.tfvars and adjust. That file is gitignored.
+#
+# The only required variable is project_id.
+
+project_id = "nursery"  # Your GCP project ID. Globally unique across GCP.
+
+# Defaults — uncomment to override.
+# region                = "us-central1"
+# zone                  = "us-central1-a"
+# machine_type          = "g2-standard-4"
+# image_family          = "common-cu129-ubuntu-2404-nvidia-580"  # Ubuntu 24.04 + Python 3.12 + CUDA 12.9
+# boot_disk_gb          = 150
+# boot_disk_type        = "pd-ssd"
+# ssh_allow_cidr        = ""              # empty = auto-detect your current public IP
+# preemptible           = true            # false for on-demand (no interruption risk, higher cost)
+# service_account_email = ""              # empty = create a minimal-privilege SA
+
+# Extra labels (cost allocation, project tracking, etc.)
+# labels = {
+#   owner    = "matthew"
+#   purpose  = "nursery-hermes-dev"
+# }
