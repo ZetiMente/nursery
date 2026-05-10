@@ -380,6 +380,8 @@ Once `aws configure` is set up and `aws sts get-caller-identity` returns your IA
 4. **Copy `terraform.tfvars.example` → `terraform.tfvars`** and set `key_pair_name`.
 5. **From `hosts/aws/terraform/`:** `terraform init` → `terraform plan` → `terraform apply`.
 
+> **New AWS account?** GPU spot/on-demand vCPU quotas default to **0**. Your first `terraform apply` will partially succeed (network resources) and then fail with `MaxSpotInstanceCountExceeded`. See [`DeployAWS.md` → Troubleshooting → MaxSpotInstanceCountExceeded](./DeployAWS.md#maxspotinstancecountexceeded) for the quota-increase commands. AWS typically auto-approves small new-account bumps in minutes to a few hours.
+
 #### References
 
 - [Install Terraform CLI (HashiCorp)](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) — prerequisite install guide for step 3.

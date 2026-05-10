@@ -225,6 +225,42 @@ Now `terraform apply` (no `-var`) uses those values. The file is gitignored so y
 
 Your IAM user lacks one of the required permissions. Check it has the `ec2:*` permissions listed above.
 
+### `MaxSpotInstanceCountExceeded`
+
+Your account's GPU spot quota is too low (often **0** for brand-new AWS accounts). You'll see this on the very first `terraform apply` — Terraform will already have created the VPC/IGW/subnet/route-table successfully, then fail on `aws_spot_instance_request.this`.
+
+**Don't `terraform destroy`** — those network resources cost $0 idle, and Terraform's state will resume the spot request once the quota is granted.
+
+Check the current quota:
+
+```bash
+aws service-quotas get-service-quota \
+  --region us-east-2 \
+  --service-code ec2 \
+  --quota-code L-3819A6DF
+```
+
+`L-3819A6DF` is **All G and VT Spot Instance Requests** (vCPU). `g6.xlarge` is 4 vCPU, so you need at least 4. Request 8 to leave room for a `g6.2xlarge` later:
+
+```bash
+aws service-quotas request-service-quota-increase \
+  --region us-east-2 \
+  --service-code ec2 \
+  --quota-code L-3819A6DF \
+  --desired-value 8
+```
+
+AWS often auto-approves small new-account requests in **minutes to a few hours**. Check status:
+
+```bash
+aws service-quotas list-requested-service-quota-change-history \
+  --region us-east-2 --service-code ec2
+```
+
+Once `Status` flips to `CASE_CLOSED` and `Value` shows the new limit, re-run `terraform apply` — it picks up where it left off.
+
+If you're using on-demand instead of spot, the equivalent quota is `L-DB2E81BA` (**Running On-Demand G and VT instances**), also 0 by default for new accounts.
+
 ### `The key pair '…' does not exist`
 
 You haven't created the key pair in this region yet, or you're pointing at the wrong region. Re-check the region in the AWS Console matches `var.region`.
