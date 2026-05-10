@@ -39,8 +39,8 @@ output "ssh_cidr" {
 }
 
 output "ssh_command" {
-  description = "Copy-paste SSH command. Replace the key path as needed."
-  value       = "ssh -i ~/.ssh/aws/${var.key_pair_name}.pem ubuntu@${aws_spot_instance_request.this.public_ip}"
+  description = "Copy-paste SSH command. Assumes the local private key is at ~/.ssh/aws/<key_pair_name> (no extension), matching the CLI-import flow in the README. Adjust the path if you used the AWS Console's RSA .pem download."
+  value       = "ssh -i ~/.ssh/aws/${var.key_pair_name} ubuntu@${aws_spot_instance_request.this.public_ip}"
 }
 
 output "destroy_hint" {

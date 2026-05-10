@@ -25,9 +25,9 @@ Typical spot cost for `g6.xlarge` in us-east-2: **~$0.22–0.35/hr**. On-demand 
 
 ## Safety up front
 
-- **Terraform will not touch resources it didn't create.** It tracks its own resources in a state file (`terraform.tfstate`). Your other EC2 instances, VPCs, S3 buckets are invisible to it. You'd have to explicitly run `terraform import` to adopt something external, which this doc does not do.
+- **Terraform will not touch resources it didn't create.** It tracks its own resources in a state file. Your other EC2 instances, VPCs, S3 buckets are invisible to it. You'd have to explicitly run `terraform import` to adopt something external, which this doc does not do.
 - **The one real risk is cost.** If `apply` succeeds, you have a running instance accumulating spot charges. Always `terraform destroy` when you're done for the day.
-- **The state file is local.** Don't delete `terraform.tfstate` — it's what lets `destroy` know what to tear down. (An S3 backend comes in a later PR.)
+- **State lives in S3** (versioned, encrypted, native-locked). Created once per account by the bootstrap module — see Step 0 below. Losing your laptop no longer means losing state.
 
 ---
 
@@ -90,20 +90,38 @@ chmod 400 ~/.ssh/aws/nursery-l4.pem
 
 ## First deploy
 
-### Step 1 — Clone the repo
+### Step 0 — One-time state-backend bootstrap (per AWS account)
+
+The main module stores state in an S3 bucket, with versioning, server-side encryption, and native S3 locking (Terraform ≥ 1.10). The bucket itself is created by a small bootstrap module that runs **once per account**.
 
 ```bash
 git clone git@github.com:ZetiMente/nursery.git
-cd nursery/hosts/aws/terraform
+cd nursery/hosts/aws/terraform/bootstrap
+terraform init
+terraform apply
 ```
 
-### Step 2 — Initialize Terraform
+Bucket name is auto-derived from your AWS account ID + region — no input required. On success, the bootstrap writes `../backend.hcl` (gitignored) for the main module to consume. It's idempotent: re-running on the same account is a no-op.
+
+The bootstrap module's own state is local and gitignored. It manages exactly one S3 bucket with `prevent_destroy = true`, so accidental teardown is blocked.
+
+### Step 1 — Move into the main module
 
 ```bash
-terraform init
+cd ..
 ```
 
-Downloads the AWS + `http` providers (~100 MB, one-time). On success you'll see `Terraform has been successfully initialized!`.
+(You're now in `hosts/aws/terraform/`.)
+
+### Step 2 — Initialize Terraform against the S3 backend
+
+```bash
+terraform init -backend-config=backend.hcl
+```
+
+Downloads the AWS + `http` providers (~100 MB, one-time) and wires up the remote state. On success: `Successfully configured the backend "s3"!`.
+
+> **Migrating from a previous local-state run?** Add `-migrate-state` (and optionally `-force-copy`) to copy your existing `terraform.tfstate` into S3 once.
 
 ### Step 3 — See the plan before you change anything
 
@@ -225,6 +243,42 @@ Now `terraform apply` (no `-var`) uses those values. The file is gitignored so y
 
 Your IAM user lacks one of the required permissions. Check it has the `ec2:*` permissions listed above.
 
+### `MaxSpotInstanceCountExceeded`
+
+Your account's GPU spot quota is too low (often **0** for brand-new AWS accounts). You'll see this on the very first `terraform apply` — Terraform will already have created the VPC/IGW/subnet/route-table successfully, then fail on `aws_spot_instance_request.this`.
+
+**Don't `terraform destroy`** — those network resources cost $0 idle, and Terraform's state will resume the spot request once the quota is granted.
+
+Check the current quota:
+
+```bash
+aws service-quotas get-service-quota \
+  --region us-east-2 \
+  --service-code ec2 \
+  --quota-code L-3819A6DF
+```
+
+`L-3819A6DF` is **All G and VT Spot Instance Requests** (vCPU). `g6.xlarge` is 4 vCPU, so you need at least 4. Request 8 to leave room for a `g6.2xlarge` later:
+
+```bash
+aws service-quotas request-service-quota-increase \
+  --region us-east-2 \
+  --service-code ec2 \
+  --quota-code L-3819A6DF \
+  --desired-value 8
+```
+
+AWS often auto-approves small new-account requests in **minutes to a few hours**. Check status:
+
+```bash
+aws service-quotas list-requested-service-quota-change-history \
+  --region us-east-2 --service-code ec2
+```
+
+Once `Status` flips to `CASE_CLOSED` and `Value` shows the new limit, re-run `terraform apply` — it picks up where it left off.
+
+If you're using on-demand instead of spot, the equivalent quota is `L-DB2E81BA` (**Running On-Demand G and VT instances**), also 0 by default for new accounts.
+
 ### `The key pair '…' does not exist`
 
 You haven't created the key pair in this region yet, or you're pointing at the wrong region. Re-check the region in the AWS Console matches `var.region`.
@@ -248,9 +302,8 @@ terraform force-unlock <LOCK_ID>   # ID is in the error message
 
 1. **Cloud-init / user-data** — install Ollama (GPU-enabled), pull models, install Nursery CLI automatically on first boot.
 2. **`nursery aws launch` CLI wrapper** — spec-driven Terraform invocation. No more `-var="key_pair_name=…"`; the spec holds it.
-3. **S3 state backend** — team-safe, lock-aware state storage (instead of `terraform.tfstate` on one machine).
-4. **Hermes containerized deployment** — spawn Hermes agents on the VM using our existing `nursery spawn` flow.
-5. **Multi-instance / multi-region** — run many L4s, each with different agents, in one `launch` command.
+3. **Hermes containerized deployment** — spawn Hermes agents on the VM using our existing `nursery spawn` flow.
+4. **Multi-instance / multi-region** — run many L4s, each with different agents, in one `launch` command.
 
 See the [roadmap in README.md](./README.md#roadmap) for full phasing.
 
@@ -260,10 +313,11 @@ See the [roadmap in README.md](./README.md#roadmap) for full phasing.
 
 | File | Purpose |
 |---|---|
-| [`hosts/aws/terraform/versions.tf`](./hosts/aws/terraform/versions.tf) | Terraform + provider version pins |
+| [`hosts/aws/terraform/versions.tf`](./hosts/aws/terraform/versions.tf) | Terraform + provider version pins, `backend "s3" {}` |
 | [`hosts/aws/terraform/variables.tf`](./hosts/aws/terraform/variables.tf) | All inputs, defaults documented |
 | [`hosts/aws/terraform/main.tf`](./hosts/aws/terraform/main.tf) | VPC, subnet, SG, spot instance |
 | [`hosts/aws/terraform/outputs.tf`](./hosts/aws/terraform/outputs.tf) | Public IP, SSH command, etc. |
 | [`hosts/aws/terraform/terraform.tfvars.example`](./hosts/aws/terraform/terraform.tfvars.example) | Copy to `terraform.tfvars`, adjust |
-| [`hosts/aws/terraform/README.md`](./hosts/aws/terraform/README.md) | Short reference |
-| [`hosts/aws/terraform/.gitignore`](./hosts/aws/terraform/.gitignore) | Excludes state, `.terraform/`, `.tfvars` |
+| `hosts/aws/terraform/backend.hcl` | **Generated by bootstrap; gitignored** — per-account S3 backend config |
+| [`hosts/aws/terraform/.gitignore`](./hosts/aws/terraform/.gitignore) | Excludes state, `.terraform/`, `.tfvars`, `backend.hcl` |
+| [`hosts/aws/terraform/bootstrap/`](./hosts/aws/terraform/bootstrap/) | One-time state-bucket creator (run once per account) |
