@@ -383,6 +383,20 @@ def cmd_spawn(args: argparse.Namespace) -> int:
     else:
         publish_port = host.publish_port
 
+    # --- Pre-spawn preflight (on by default; --no-preflight to skip) ---
+    if not args.dry_run and not args.no_preflight:
+        from nursery_cli import preflight
+        print("==> preflight...")
+        report = preflight.run_preflight_for_spawn(spec, workspace)
+        print(report.render(use_color=sys.stdout.isatty()))
+        if report.has_failures():
+            sys.stderr.write(
+                "\nerror: preflight failed. Fix the issues above, or run with --no-preflight to skip.\n"
+                "       Run `nursery doctor` for a full host readiness report.\n"
+            )
+            return 1
+        print()
+
     run_args = _build_run_args(
         spec,
         host,
@@ -424,6 +438,24 @@ def cmd_spawn(args: argparse.Namespace) -> int:
 
     cid = (result.stdout or "").strip().splitlines()[-1] if result.stdout else ""
     print(f"    container id: {cid or '(unknown)'}")
+
+    # --- Post-spawn verification (on by default; --no-wait to skip) ---
+    if not args.no_wait and publish_port:
+        from nursery_cli import preflight
+        print(f"==> verifying container health (up to {args.wait_timeout}s)...")
+        verify = preflight.run_post_spawn_verify(
+            agent_url=f"http://localhost:{publish_port}",
+            timeout_s=args.wait_timeout,
+        )
+        print(verify.render(use_color=sys.stdout.isatty()))
+        if verify.has_failures():
+            sys.stderr.write(
+                f"\nwarning: container is running but not healthy. Inspect:\n"
+                f"  nursery logs {spec['name']}\n"
+                f"  nursery doctor\n"
+            )
+            # Don't return failure: container is up; user can inspect.
+
     print(f"    logs:    nursery logs {spec['name']}")
     print(f"    stop:    nursery stop {spec['name']}")
     return 0
@@ -538,6 +570,21 @@ def cmd_hosts(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Run a standalone host readiness report."""
+    from nursery_cli import preflight
+    print("nursery doctor — host readiness report")
+    print()
+    report = preflight.run_doctor()
+    print(report.render(use_color=sys.stdout.isatty()))
+    print()
+    if report.has_failures():
+        print("Result: issues found. Fix the items marked ✗ and re-run `nursery doctor`.")
+        return 1
+    print("Result: host looks ready for `nursery spawn`.")
+    return 0
+
+
 def register_subparsers(subparsers) -> None:  # type: ignore[no-untyped-def]
     sp_spawn = subparsers.add_parser("spawn", help="Spawn an agent container from a spec.")
     sp_spawn.add_argument("spec", help="Path to an agent spec (.yaml, .yml, or .json).")
@@ -549,6 +596,9 @@ def register_subparsers(subparsers) -> None:  # type: ignore[no-untyped-def]
     sp_spawn.add_argument("--no-publish", action="store_true", help="Do not publish the agent's port to the host.")
     sp_spawn.add_argument("--foreground", action="store_true", help="Run attached instead of detached.")
     sp_spawn.add_argument("--dry-run", action="store_true", help="Print the docker command instead of running it.")
+    sp_spawn.add_argument("--no-preflight", action="store_true", help="Skip pre-spawn host readiness checks.")
+    sp_spawn.add_argument("--no-wait", action="store_true", help="Don't wait for the container to report healthy.")
+    sp_spawn.add_argument("--wait-timeout", type=float, default=30.0, help="Seconds to wait for /healthz (default 30).")
     sp_spawn.set_defaults(func=cmd_spawn)
 
     sp_ps = subparsers.add_parser("ps", help="List Nursery-managed containers.")
@@ -572,3 +622,9 @@ def register_subparsers(subparsers) -> None:  # type: ignore[no-untyped-def]
 
     sp_hosts = subparsers.add_parser("hosts", help="List available host profiles.")
     sp_hosts.set_defaults(func=cmd_hosts)
+
+    sp_doctor = subparsers.add_parser(
+        "doctor",
+        help="Check host readiness (docker, ollama binding, firewall, etc.)",
+    )
+    sp_doctor.set_defaults(func=cmd_doctor)
