@@ -375,10 +375,11 @@ See [`DeployAWS.md`](./DeployAWS.md) for the full walkthrough — takes you from
 Once `aws configure` is set up and `aws sts get-caller-identity` returns your IAM user, the deploy path is:
 
 1. **Create an EC2 key pair in `us-east-2`** (AWS Console → EC2 → Key Pairs → Create). Name it (e.g. `nursery-l4`), download the `.pem`, `chmod 400` it.
-2. **Verify your IAM user has `ec2:*`** — `terraform-dev` may or may not. The user you set up earlier with `AdministratorAccess` is fine; if you scoped it tighter you'll need to widen it.
-3. **Install Terraform locally** — `brew install terraform` or `brew install opentofu`. See HashiCorp's official guide: [Install Terraform CLI](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli).
+2. **Verify your IAM user has `ec2:*` and `s3:*`** — `terraform-dev` may or may not. The user you set up earlier with `AdministratorAccess` is fine; if you scoped it tighter you'll need to widen it.
+3. **Install Terraform locally** — `brew install terraform` or `brew install opentofu`. See HashiCorp's official guide: [Install Terraform CLI](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli). Requires ≥ 1.10 for native S3 state locking.
 4. **Copy `terraform.tfvars.example` → `terraform.tfvars`** and set `key_pair_name`.
-5. **From `hosts/aws/terraform/`:** `terraform init` → `terraform plan` → `terraform apply`.
+5. **One-time state-backend bootstrap (per AWS account)** — from `hosts/aws/terraform/bootstrap/`: `terraform init` → `terraform apply`. Creates the S3 bucket (versioned, encrypted) and writes `../backend.hcl` for the main module.
+6. **From `hosts/aws/terraform/`:** `terraform init -backend-config=backend.hcl` → `terraform plan` → `terraform apply`.
 
 > **New AWS account?** GPU spot/on-demand vCPU quotas default to **0**. Your first `terraform apply` will partially succeed (network resources) and then fail with `MaxSpotInstanceCountExceeded`. See [`DeployAWS.md` → Troubleshooting → MaxSpotInstanceCountExceeded](./DeployAWS.md#maxspotinstancecountexceeded) for the quota-increase commands. AWS typically auto-approves small new-account bumps in minutes to a few hours.
 
