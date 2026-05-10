@@ -73,16 +73,18 @@ Both open a browser. After this, `gcloud auth list` shows your account.
 
 **Recommendation: dedicated project for Nursery.** Clean cost tracking, easy nuclear cleanup.
 
+The canonical Nursery project is `nursery-factory`. If you're setting up your own:
+
 ```bash
-# Try creating the project. Project IDs are globally unique across all of GCP.
-gcloud projects create nursery --name="Nursery"
+# Try the canonical name first. Project IDs are globally unique across all of GCP.
+gcloud projects create nursery-factory --name="Nursery Factory"
 
 # If "Requested entity already exists", pick a scoped ID:
 gcloud projects create nursery-$(whoami) --name="Nursery"
 
 # Confirm and set as default
 gcloud projects list
-gcloud config set project <your-project-id>
+gcloud config set project nursery-factory
 ```
 
 **Link billing:**
@@ -92,7 +94,7 @@ gcloud config set project <your-project-id>
 gcloud billing accounts list
 
 # Link (substitute the billing account ID)
-gcloud billing projects link <your-project-id> \
+gcloud billing projects link nursery-factory \
   --billing-account=XXXXXX-XXXXXX-XXXXXX
 ```
 
@@ -167,7 +169,7 @@ Downloads the `google` + `http` providers. One-time.
 ### Step 3 — Plan
 
 ```bash
-terraform plan -var="project_id=<your-project-id>"
+terraform plan -var="project_id=nursery-factory"
 ```
 
 Expected summary:
@@ -189,7 +191,7 @@ Resources:
 ### Step 4 — Apply
 
 ```bash
-terraform apply -var="project_id=<your-project-id>"
+terraform apply -var="project_id=nursery-factory"
 ```
 
 Terraform asks `Enter a value:` — type `yes`. Spot VM creation takes ~60–120 seconds.
@@ -207,7 +209,7 @@ image              = "https://.../common-cu129-ubuntu-2404-nvidia-580-..."
 Use the `ssh_command_gcloud` output verbatim. `gcloud` handles OS Login automatically — no key file to hunt for.
 
 ```bash
-gcloud compute ssh nursery-l4 --zone=us-central1-a --project=<your-project-id>
+gcloud compute ssh nursery-l4 --zone=us-central1-a --project=nursery-factory
 ```
 
 On the VM, confirm the stack is what we asked for:
@@ -229,7 +231,7 @@ All of these should respond cleanly. If any don't, the image or driver install d
 
 ```bash
 cd nursery/hosts/gcp/terraform
-terraform destroy -var="project_id=<your-project-id>"
+terraform destroy -var="project_id=nursery-factory"
 ```
 
 Confirm with `yes`. Everything Terraform created is removed, billing for the VM stops.

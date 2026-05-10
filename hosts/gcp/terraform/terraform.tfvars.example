@@ -2,7 +2,7 @@
 #
 # The only required variable is project_id.
 
-project_id = "nursery"  # Your GCP project ID. Globally unique across GCP.
+project_id = "nursery-factory"  # Canonical Nursery project ID. Substitute your own if needed.
 
 # Defaults — uncomment to override.
 # region                = "us-central1"
