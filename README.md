@@ -41,19 +41,22 @@ uv tool install .
 # 3. Build the container images locally.
 docker/build.sh                  # builds :base and :openclaw
 
-# 4. Spawn an example agent.
+# 4. (Recommended) Verify host readiness.
+nursery doctor
+
+# 5. Spawn an example agent.
 nursery spawn examples/agents/pi-layla.yaml
 
-# 5. Verify.
+# 6. Verify.
 nursery ps
 curl http://localhost:7860/healthz
 
-# 6. Message it.
+# 7. Message it.
 curl -X POST http://localhost:7860/message \
   -H 'Content-Type: application/json' \
   -d '{"text":"hello"}'
 
-# 7. Clean up.
+# 8. Clean up.
 nursery stop layla-pi
 nursery rm layla-pi
 ```

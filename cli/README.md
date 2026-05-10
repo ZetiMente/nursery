@@ -6,7 +6,8 @@ The `nursery` command-line interface.
 
 ```bash
 nursery validate <spec.yaml>           # Lint a spec against the schema
-nursery spawn <spec.yaml> [--dry-run]  # Start a container from the spec
+nursery spawn <spec.yaml> [--dry-run]  # Start a container from the spec (preflight on by default)
+nursery doctor                         # Standalone host readiness report
 nursery ps [-a]                        # List Nursery-managed containers
 nursery stop <agent-name>              # Stop a running agent (workspace persists)
 nursery rm <agent-name>                # Remove a container (workspace persists)
@@ -15,6 +16,42 @@ nursery hosts                          # List available host profiles
 nursery --version
 nursery --help
 ```
+
+## Preflight
+
+`nursery spawn` runs pre-spawn host checks by default. If any fail, the container is NOT created and the CLI prints the exact fix command for each issue:
+
+```
+==> preflight...
+  ✓ docker  v29.4.3
+  ✓ workspace  writable (/home/matthew/nursery/agents/layla-pi/workspace)
+  ✓ ollama (host)  v0.23.2 at http://127.0.0.1:11434
+  ✗ ollama binding  bound to 127.0.0.1 only — containers can't reach it
+      fix:
+        sudo mkdir -p /etc/systemd/system/ollama.service.d
+        echo '[Service]
+        Environment="OLLAMA_HOST=0.0.0.0"' | \
+          sudo tee /etc/systemd/system/ollama.service.d/override.conf
+        sudo systemctl daemon-reload && sudo systemctl restart ollama
+  ✗ bridge → ollama  container cannot reach host Ollama
+      fix:
+        sudo ufw allow from 172.17.0.0/16 to any port 11434 proto tcp
+        sudo ufw reload
+  ✓ model batiai/gemma4-e2b:q4  pulled
+
+error: preflight failed. Fix the issues above, or run with --no-preflight to skip.
+       Run `nursery doctor` for a full host readiness report.
+```
+
+After a successful `docker run`, spawn also polls `/healthz` until `backend_ok=true` or `--wait-timeout` expires. Use `--no-wait` to skip.
+
+`nursery doctor` runs the same checks standalone, no spec required — good for onboarding a new host.
+
+Flags:
+
+- `--no-preflight` — skip pre-spawn checks.
+- `--no-wait` — don't wait for container health.
+- `--wait-timeout N` — seconds to wait for `/healthz` (default 30).
 
 ## Planned (not yet implemented)
 
