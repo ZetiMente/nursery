@@ -1,0 +1,24 @@
+# Example Nursery agent spec for a standalone deployment.
+# No gateway framework. The agent is the service. Published on host port 7860.
+# Runs on any Linux — Raspberry Pi hardware, WSL, a laptop, or an EC2 instance.
+#
+# Validate:  uv run nursery validate examples/agents/standalone-layla.yaml
+# Spawn:     uv run nursery spawn examples/agents/standalone-layla.yaml
+
+name: layla-standalone
+image: nursery/agent:base
+host: standalone
+model: ollama/batiai/gemma4-e2b:q4
+soul: ../souls/layla/SOUL.md
+workspace: ~/nursery/agents/layla-standalone/workspace
+
+resources:
+  memory: 6g
+  cpus: 4.0
+
+environment:
+  LOG_LEVEL: info
+
+labels:
+  deployment: standalone
+  quant: q4_k_m

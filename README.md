@@ -45,7 +45,7 @@ docker/build.sh                  # builds :base and :openclaw
 nursery doctor
 
 # 5. Spawn an example agent.
-nursery spawn examples/agents/pi-layla.yaml
+nursery spawn examples/agents/standalone-layla.yaml
 
 # 6. Verify.
 nursery ps
@@ -57,8 +57,8 @@ curl -X POST http://localhost:7860/message \
   -d '{"text":"hello"}'
 
 # 8. Clean up.
-nursery stop layla-pi
-nursery rm layla-pi
+nursery stop layla-standalone
+nursery rm layla-standalone
 ```
 
 Full commands and per-host variants live in [`cli/README.md`](./cli/README.md) and the host-specific READMEs under [`hosts/`](./hosts/).
@@ -320,10 +320,11 @@ Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
 *Nursery runs outside OpenClaw's ecosystem.*
 
 - [ ] Hermes host adapter (`hosts/hermes/`)
-- [ ] Pi-native bootstrap (`hosts/pi/`) — no heavyweight framework required
-- [ ] A single agent portable across all three hosts without code changes
+- [ ] Pi host adapter (`hosts/pi/`) — integration shape with [Pi](https://pi.dev) specified
+- [ ] Standalone profile hardened for cloud deployments (multi-arch images, AWS turnkey)
+- [ ] A single agent portable across all four hosts without code changes
 
-**Done when:** the same agent spec runs on OpenClaw, Hermes, and a bare Pi.
+**Done when:** the same agent spec runs on OpenClaw, Hermes, Pi, and a standalone VM.
 
 ---
 
@@ -353,6 +354,8 @@ Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
 - A clean story for migrating / backing up workspaces
 - **Skills mount layer** — ride `agentskills.io`, expose host skills into the container (see [Skills Ecosystem](#skills-ecosystem) above)
 - **Scenario runtime** — agents inside simulated contexts (life-scenario RPGs) for evaluation, training data generation, and experiential agent development
+- **Multi-arch container images** — publish `linux/amd64` + `linux/arm64` from a single `docker buildx` so the same tag runs on a Pi and a cloud VM
+- **AWS turnkey launch** — `nursery aws launch <spec>` that provisions an EC2 instance, installs prerequisites, and spawns the agent in one command
 
 No promises. These live here so they don't get lost.
 
@@ -360,7 +363,8 @@ No promises. These live here so they don't get lost.
 
 - **[OpenClaw](https://github.com/openclaw/openclaw)** — open-source agent framework.
 - **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — self-improving agent framework by [Nous Research](https://nousresearch.com). Sibling of OpenClaw with a 15+ platform messaging gateway.
-- **Pi** — bare Raspberry Pi deployments, no heavyweight framework required.
+- **[Pi](https://pi.dev/)** — Mario Zechner's self-extensible coding-agent toolkit (the substrate OpenClaw is built on).
+- **Standalone** — thin Nursery runtime, no gateway framework. Runs on any Linux (Raspberry Pi hardware, WSL, laptops, cloud VMs like AWS EC2).
 
 ## Inspirations
 
