@@ -345,21 +345,46 @@ The format is adopted by **OpenClaw, Hermes, Gemini CLI, Cursor, OpenHands, Amp,
 
 **Rule of thumb:** a core skill drops between Hermes and OpenClaw without fuss. Framework-specific niceties (conditional activation, icons, bin preflight) degrade gracefully — the skill still works, just without that specific enhancement.
 
-### How Nursery exposes skills to agents *(planned)*
+### How Nursery exposes skills to agents
 
-Nursery will not bundle skills itself. Instead, agents will mount a skills directory from the host:
+**Two systems running in parallel, by design.**
+
+1. **Native framework skills.** OpenClaw loads `~/.openclaw/workspace-<agent>/skills/` its own way. Hermes loads `~/.hermes/skills/` its own way. Nursery does not touch either — they continue working exactly as their frameworks define.
+
+2. **Nursery's embedding-indexed retrieval.** Additive layer that lives inside the Nursery container. Reads `SKILL.md` files from a configured directory, embeds each skill's description, and injects the top-k semantically relevant skills into the agent's system prompt per-message.
+
+Both can coexist — they write to different surfaces, so there's no conflict. If you're using a pure Nursery agent, only retrieval runs. If you're inside OpenClaw or Hermes, the native loader runs AND Nursery's retriever runs, and the agent sees both.
+
+**Enabling retrieval** (opt-in):
 
 ```yaml
-# agent.yaml (future)
-skills:
-  source: host                    # 'host' = mount from host, 'bundle' = from image, 'none' = disabled
-  mount: ~/.openclaw/skills       # path on the host
-  readonly: true                  # default: agents can read but not modify
+# agent.yaml
+environment:
+  NURSERY_SKILLS_DIR: /skills   # where the agent sees mounted skills
+  NURSERY_EMBED_MODEL: nomic-embed-text:latest  # optional; this is the default
 ```
 
-Under the hood, this becomes a `-v ~/.openclaw/skills:/skills:ro` at `docker run` time. The agent then reads `/skills/*/SKILL.md` at startup and exposes them per framework conventions.
+Then mount the skills directory at spawn time (automatic for the Pi host profile in a future PR; manual `-v` for now):
 
-Status: 🥚 not implemented. The `capabilities:` field in the spec is a stub; the actual skill loader lives in the agent runtime and hasn't been written.
+```bash
+docker run -v ~/.openclaw/workspace-layla/skills:/skills:ro ...
+```
+
+**How it works under the hood:**
+
+1. On startup, the agent scans the mounted directory for `SKILL.md` files (standard `agentskills.io` layout).
+2. Each skill's description + first ~500 chars of body are embedded via Ollama's `nomic-embed-text` (~565 MB, fast even on Pi 4).
+3. Embeddings are cached to `<workspace>/.nursery/skills-index.json`. Subsequent restarts reuse the cache; only new or changed skills are re-embedded.
+4. On every `POST /message`, the user's text is embedded, compared against the index, and the top 3 skills (by cosine similarity) are injected into the system prompt as a `# Relevant skills` block.
+5. Skills with a `platforms:` frontmatter field are filtered to compatible OSes automatically.
+
+**Why separate rather than unified:**
+
+- Frameworks update their skill systems at their own pace. A Nursery retriever that tried to *replace* either would fight updates.
+- The information budget is different. OpenClaw/Hermes native loading picks skills by slash-command or tag heuristics; embedding retrieval picks them by semantic relevance to *this* message. Both signals are useful.
+- We don't want to be another skill-format in the ecosystem. We want to be a useful layer on top of the one that exists.
+
+Status: 🐥 Working. See [`agent/src/nursery_agent/skills.py`](./agent/src/nursery_agent/skills.py). Two example skills ship in [`examples/skills/`](./examples/skills/).
 
 ### Why this matters — the RPG / life-scenario direction
 

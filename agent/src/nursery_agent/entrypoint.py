@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from nursery_agent.backends import Backend, BackendError, Message, resolve_backend
+from nursery_agent.skills import SkillIndex, index_from_env, render_skills_for_prompt
 
 LOG = logging.getLogger("nursery-agent")
 
@@ -106,6 +107,7 @@ class _State:
     secrets: list[str]
     workspace: str
     backend: Backend
+    skill_index: SkillIndex | None
 
 
 STATE = _State()
@@ -134,6 +136,15 @@ class Handler(BaseHTTPRequestHandler):
             })
             return
         if self.path == "/info":
+            skill_info: dict[str, Any] = {"enabled": False}
+            if STATE.skill_index is not None:
+                skill_info = {
+                    "enabled": True,
+                    "skills_dir": str(STATE.skill_index.skills_dir),
+                    "embed_model": STATE.skill_index.embed_model,
+                    "count": len(STATE.skill_index.skills),
+                    "names": [s.name for s in STATE.skill_index.skills],
+                }
             self._json(200, {
                 "name": STATE.spec.get("name"),
                 "image": STATE.spec.get("image"),
@@ -145,6 +156,7 @@ class Handler(BaseHTTPRequestHandler):
                 "soul_bytes": len(STATE.soul) if STATE.soul else 0,
                 "secrets_mounted": STATE.secrets,
                 "backend": STATE.backend.health(),
+                "skills": skill_info,
             })
             return
         self._json(404, {"error": "not found"})
@@ -176,10 +188,24 @@ class Handler(BaseHTTPRequestHandler):
             if role in ("user", "assistant", "system") and isinstance(content, str):
                 history.append(Message(role=role, content=content))
 
-        # Build message list: soul → history → this user message.
+        # Skill retrieval (optional, additive — doesn't replace any host's native
+        # skill loading; just injects top-k by semantic similarity into our prompt).
+        retrieved_skills: list[str] = []
+        skills_block = ""
+        if STATE.skill_index is not None:
+            try:
+                top = STATE.skill_index.retrieve(text, k=3)
+                retrieved_skills = [s.name for s in top]
+                skills_block = render_skills_for_prompt(top)
+            except Exception as e:  # noqa: BLE001 — skills must never break chat
+                LOG.warning("agent: skill retrieval failed: %s (continuing without)", e)
+
+        # Build message list: soul → retrieved skills (as system) → history → user.
         messages: list[Message] = []
         if STATE.soul:
             messages.append(Message(role="system", content=STATE.soul.strip()))
+        if skills_block:
+            messages.append(Message(role="system", content=skills_block))
         messages.extend(history)
         messages.append(Message(role="user", content=text))
 
@@ -197,7 +223,7 @@ class Handler(BaseHTTPRequestHandler):
             "agent": STATE.spec.get("name"),
             "reply": reply.content,
             "thinking": reply.thinking,
-            "meta": reply.meta,
+            "meta": {**reply.meta, "retrieved_skills": retrieved_skills},
         })
 
 
@@ -248,11 +274,23 @@ def main() -> int:
     STATE.workspace = workspace
     STATE.backend = backend
 
+    # Skill retrieval (optional; enabled if NURSERY_SKILLS_DIR is set)
+    skill_index = index_from_env(Path(workspace))
+    if skill_index is not None:
+        try:
+            skill_index.build_or_load()
+        except Exception as e:  # noqa: BLE001 — skills must never block startup
+            LOG.warning("agent: skill index build failed: %s (retrieval disabled)", e)
+            skill_index = None
+    STATE.skill_index = skill_index
+
+    skill_count = len(skill_index.skills) if skill_index else 0
     LOG.info(
-        "agent: ready — name=%s model=%s backend=%s soul=%s secrets=%s",
+        "agent: ready — name=%s model=%s backend=%s soul=%s secrets=%s skills=%d",
         spec.get("name"), model, backend.name,
         "yes" if soul else "no",
         secrets or "none",
+        skill_count,
     )
 
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)  # noqa: S104
