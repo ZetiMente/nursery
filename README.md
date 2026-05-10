@@ -370,6 +370,7 @@ No promises. These live here so they don't get lost.
 
 See [`DeployAWS.md`](./DeployAWS.md) for the full walkthrough — takes you from zero to a running L4 GPU spot instance on EC2, using the Terraform module in [`hosts/aws/terraform/`](./hosts/aws/terraform/).
 
+
 ### Next steps
 
 Once `aws configure` is set up and `aws sts get-caller-identity` returns your IAM user, the deploy path is:
@@ -386,6 +387,10 @@ Once `aws configure` is set up and `aws sts get-caller-identity` returns your IA
 #### References
 
 - [Install Terraform CLI (HashiCorp)](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) — prerequisite install guide for step 3.
+
+## Deploying to Google Cloud
+
+See [`DeployGCP.md`](./DeployGCP.md) for the GCP counterpart — same L4 spot VM shape, running on Ubuntu 24.04 with Python 3.12, CUDA 12.9, and NVIDIA driver 580 pre-installed. Terraform module in [`hosts/gcp/terraform/`](./hosts/gcp/terraform/).
 
 ## Inspirations
 
