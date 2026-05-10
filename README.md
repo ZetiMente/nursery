@@ -2,7 +2,7 @@
 
 *Turnkey reproducible AI agents. Pets become cattle.*
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
 ## The Idea
 
@@ -239,7 +239,7 @@ Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
 
 - [x] Write the README
 - [x] Scaffold the directory structure
-- [x] MIT license + SECURITY.md
+- [x] MIT license + SECURITY.md *(later relicensed to Apache 2.0 — see [LICENSE](./LICENSE))*
 - [x] Architecture / protocol / secrets / identity notes
 - [ ] Decide the agent ↔ host protocol (see [`docs/protocol.md`](./docs/protocol.md))
 
@@ -547,4 +547,4 @@ Early-stage. Open an issue before submitting a PR. For security issues, see [SEC
 
 ## License
 
-[MIT](./LICENSE)
+[Apache 2.0](./LICENSE) — includes an explicit patent grant (Section 3) to contributors and users. See [NOTICE](./NOTICE) for attribution.
