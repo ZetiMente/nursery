@@ -13,6 +13,7 @@ Right now, AI agents are **pets**. You name them. You configure them by hand. Yo
 ## Design Goals
 
 1. **Turnkey reproduction.** One config file → one running agent. No hand-wiring.
+2. **Deployable Local & Cloud** Deployable on most linux platforms, local models or API's
 2. **Model-agnostic.** Claude, Gemini, local models — just a config parameter, not a rewrite.
 3. **Runtime-agnostic.** Works for **OpenClaw**, **Hermes**, and bare **Pi** deployments. The agent is the agent; the host is just the stage.
 4. **Identity persists, bodies don't.** The container is disposable. The workspace (memory, persona) is the identity.
@@ -239,7 +240,7 @@ Legend: 🥚 not started · 🐣 in progress · 🐥 working · ✅ stable
 
 - [x] Write the README
 - [x] Scaffold the directory structure
-- [x] MIT license + SECURITY.md *(later relicensed to Apache 2.0 — see [LICENSE](./LICENSE))*
+- [x] Apache 2 + SECURITY.md 
 - [x] Architecture / protocol / secrets / identity notes
 - [ ] Decide the agent ↔ host protocol (see [`docs/protocol.md`](./docs/protocol.md))
 
