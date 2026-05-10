@@ -376,9 +376,13 @@ Once `aws configure` is set up and `aws sts get-caller-identity` returns your IA
 
 1. **Create an EC2 key pair in `us-east-2`** (AWS Console → EC2 → Key Pairs → Create). Name it (e.g. `nursery-l4`), download the `.pem`, `chmod 400` it.
 2. **Verify your IAM user has `ec2:*`** — `terraform-dev` may or may not. The user you set up earlier with `AdministratorAccess` is fine; if you scoped it tighter you'll need to widen it.
-3. **Install Terraform locally** (`brew install terraform` or `brew install opentofu`).
+3. **Install Terraform locally** — `brew install terraform` or `brew install opentofu`. See HashiCorp's official guide: [Install Terraform CLI](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli).
 4. **Copy `terraform.tfvars.example` → `terraform.tfvars`** and set `key_pair_name`.
 5. **From `hosts/aws/terraform/`:** `terraform init` → `terraform plan` → `terraform apply`.
+
+#### References
+
+- [Install Terraform CLI (HashiCorp)](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) — prerequisite install guide for step 3.
 
 ## Inspirations
 
