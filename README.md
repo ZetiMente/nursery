@@ -366,6 +366,10 @@ No promises. These live here so they don't get lost.
 - **[Pi](https://pi.dev/)** — Mario Zechner's self-extensible coding-agent toolkit (the substrate OpenClaw is built on).
 - **Standalone** — thin Nursery runtime, no gateway framework. Runs on any Linux (Raspberry Pi hardware, WSL, laptops, cloud VMs like AWS EC2).
 
+## Deploying to AWS
+
+See [`DeployAWS.md`](./DeployAWS.md) for the full walkthrough — takes you from zero to a running L4 GPU spot instance on EC2, using the Terraform module in [`hosts/aws/terraform/`](./hosts/aws/terraform/).
+
 ## Inspirations
 
 Nursery is not built in a vacuum. Research and projects we're reading, in the order they mattered to our thinking.

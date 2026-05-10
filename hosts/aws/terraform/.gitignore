@@ -1,0 +1,19 @@
+# Terraform state + local artifacts
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl.bak
+
+# Local variable files — typically contain personal values (key pair name,
+# IP, bid prices). Committed values would force everyone to use the same.
+# Commit terraform.tfvars.example instead if you want to share defaults.
+terraform.tfvars
+*.auto.tfvars
+
+# Plan outputs
+*.tfplan
+plan.out
+
+# Crash log
+crash.log

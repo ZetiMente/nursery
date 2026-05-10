@@ -1,0 +1,18 @@
+# Copy this to terraform.tfvars and adjust. That file is gitignored.
+#
+# The only required variable is key_pair_name.
+
+key_pair_name = "nursery-l4"
+
+# Defaults — uncomment to override.
+# region         = "us-east-2"
+# instance_type  = "g6.xlarge"
+# root_volume_gb = 100
+# ssh_allow_cidr = ""       # empty = auto-detect your current public IP
+# spot_max_price = ""       # empty = pay current market spot price
+
+# Extra tags (cost allocation, project tracking, etc.)
+# extra_tags = {
+#   Owner    = "matthew"
+#   Purpose  = "nursery-hermes-dev"
+# }
