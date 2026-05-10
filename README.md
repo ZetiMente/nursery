@@ -370,6 +370,16 @@ No promises. These live here so they don't get lost.
 
 See [`DeployAWS.md`](./DeployAWS.md) for the full walkthrough — takes you from zero to a running L4 GPU spot instance on EC2, using the Terraform module in [`hosts/aws/terraform/`](./hosts/aws/terraform/).
 
+### Next steps
+
+Once `aws configure` is set up and `aws sts get-caller-identity` returns your IAM user, the deploy path is:
+
+1. **Create an EC2 key pair in `us-east-2`** (AWS Console → EC2 → Key Pairs → Create). Name it (e.g. `nursery-l4`), download the `.pem`, `chmod 400` it.
+2. **Verify your IAM user has `ec2:*`** — `terraform-dev` may or may not. The user you set up earlier with `AdministratorAccess` is fine; if you scoped it tighter you'll need to widen it.
+3. **Install Terraform locally** (`brew install terraform` or `brew install opentofu`).
+4. **Copy `terraform.tfvars.example` → `terraform.tfvars`** and set `key_pair_name`.
+5. **From `hosts/aws/terraform/`:** `terraform init` → `terraform plan` → `terraform apply`.
+
 ## Inspirations
 
 Nursery is not built in a vacuum. Research and projects we're reading, in the order they mattered to our thinking.
