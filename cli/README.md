@@ -87,11 +87,12 @@ Python 3.10+ required. Dependencies (`pyyaml`, `jsonschema`) install automatical
 
 Run `nursery hosts` for a live listing.
 
-| Host      | Image                     | Default env                                    | Port publish | Status       |
-|-----------|---------------------------|------------------------------------------------|--------------|--------------|
-| openclaw  | `nursery/agent:openclaw`  | `NURSERY_GATEWAY_URL=http://host:7770`         | (none, gateway routes) | ready |
-| hermes    | `nursery/agent:base`      | `NURSERY_GATEWAY_URL=http://host:8642`         | (none, gateway routes) | ready |
-| pi        | `nursery/agent:base`      | `NURSERY_OLLAMA_URL=http://host:11434`         | `7860:7860`  | ready |
+| Host       | Image                     | Default env                                    | Port publish | Status       |
+|------------|---------------------------|------------------------------------------------|--------------|--------------|
+| openclaw   | `nursery/agent:openclaw`  | `NURSERY_GATEWAY_URL=http://host:7770`         | (none, gateway routes) | ready |
+| hermes     | `nursery/agent:base`      | `NURSERY_GATEWAY_URL=http://host:8642`         | (none, gateway routes) | ready |
+| pi         | `nursery/agent:base`      | `NURSERY_HOST=pi`                              | (none) | **provisional** |
+| standalone | `nursery/agent:base`      | `NURSERY_OLLAMA_URL=http://host:11434`         | `7860:7860`  | ready |
 
 All three inject `NURSERY_HOST=<profile-name>` and add `--add-host=host.docker.internal:host-gateway` so the container can reach host services on Linux.
 

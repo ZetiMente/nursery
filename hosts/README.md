@@ -4,13 +4,14 @@ A **host** is the environment an agent runs inside. Each host has its own gatewa
 
 ## Supported Hosts
 
-| Host       | Description                                                                | Status |
-|------------|----------------------------------------------------------------------------|--------|
-| `openclaw` | Runs inside an existing [OpenClaw](https://github.com/openclaw/openclaw) gateway. | 🐣 (image + spawn profile; gateway integration Phase 5) |
-| `hermes`   | Runs alongside a [Hermes Agent](https://hermes-agent.nousresearch.com/) gateway (Nous Research). | 🐣 (profile ready; dedicated image + integration TBD) |
-| `pi`       | Bare Raspberry Pi with no gateway framework. Agent as a service.           | 🐣 (image + spawn profile; HTTP-only interface) |
+| Host         | Description                                                                | Status |
+|--------------|----------------------------------------------------------------------------|--------|
+| `openclaw`   | Runs inside an existing [OpenClaw](https://github.com/openclaw/openclaw) gateway. | 🐣 (image + spawn profile; gateway integration Phase 5) |
+| `hermes`     | Runs alongside a [Hermes Agent](https://hermes-agent.nousresearch.com/) gateway (Nous Research). | 🐣 (profile ready; dedicated image + integration TBD) |
+| `pi`         | Runs with [Pi](https://pi.dev/) — Mario Zechner's self-extensible agent toolkit. | 🥚 (provisional; integration shape TBD) |
+| `standalone` | Thin Nursery runtime. No gateway. Runs on Pi hardware, WSL, a laptop, or EC2. | 🐣 (image + spawn profile; HTTP-only interface) |
 
-See [`openclaw/`](./openclaw/), [`hermes/`](./hermes/), and [`pi/`](./pi/) for per-host details.
+See [`openclaw/`](./openclaw/), [`hermes/`](./hermes/), [`pi/`](./pi/), and [`standalone/`](./standalone/) for per-host details.
 
 See [`openclaw/`](./openclaw/), [`hermes/`](./hermes/), and [`pi/`](./pi/) for per-host details.
 

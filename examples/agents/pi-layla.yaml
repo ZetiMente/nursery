@@ -1,5 +1,13 @@
-# Example Nursery agent spec for a bare Pi deployment.
-# No gateway. The agent is the service. Published on host port 7860.
+# Example Nursery agent spec for Pi (Mario Zechner's agent toolkit).
+# Pi is the self-extensible coding-agent substrate that OpenClaw is built on.
+#   https://pi.dev
+#   https://github.com/earendil-works/pi
+#
+# PROVISIONAL: this profile's integration details (how a Nursery container
+# hands off to or runs alongside a pi-agent-core process) are not yet
+# specified. Spawning will print a 'provisional' warning. See
+# hosts/pi/README.md for current assumptions.
+#
 # Validate:  uv run nursery validate examples/agents/pi-layla.yaml
 # Spawn:     uv run nursery spawn examples/agents/pi-layla.yaml
 
@@ -18,5 +26,6 @@ environment:
   LOG_LEVEL: info
 
 labels:
-  hardware: raspberry-pi-4
-  quant: q4_k_m
+  framework: pi
+  author: earendil-works
+  status: provisional

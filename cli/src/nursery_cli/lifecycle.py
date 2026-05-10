@@ -121,19 +121,56 @@ HOST_PROFILES: dict[str, HostProfile] = {
     ),
 
     # ------------------------------------------------------------------
-    # Pi (bare): no gateway. The agent is the service. Published on the
-    # host on port 7860 by default so you can curl it directly. Resources
-    # capped conservatively.
+    # Pi: Mario Zechner's self-extensible coding agent toolkit
+    # (https://pi.dev, https://github.com/earendil-works/pi). Published as
+    # npm packages (@earendil-works/pi-*). Pi is the substrate OpenClaw is
+    # built on top of — so in practice, targeting Pi directly means using
+    # pi-agent-core without a larger framework around it.
+    #
+    # PROVISIONAL: integration details (how a Nursery container hands off
+    # to or runs alongside a pi-agent-core process) are not yet specified.
+    # The profile currently mirrors 'standalone' with Pi-flavored env vars
+    # and a warning on spawn.
     # ------------------------------------------------------------------
     "pi": HostProfile(
         name="pi",
         image_tag="base",
-        description="Bare Pi / edge. No gateway. Agent HTTP published to host.",
+        description="Agents on Pi (Mario Zechner's agent toolkit — https://pi.dev).",
         extra_run_args=(
             "--add-host=host.docker.internal:host-gateway",
         ),
         default_env=(
             ("NURSERY_HOST", "pi"),
+            ("NURSERY_OLLAMA_URL", "http://host.docker.internal:11434"),
+        ),
+        publish_port=None,
+        default_memory=None,
+        default_cpus=None,
+        provisional=True,
+    ),
+
+    # ------------------------------------------------------------------
+    # Standalone: thin Nursery runtime. No external gateway framework.
+    # The agent IS the service. HTTP is published to the host on port
+    # 7860 by default so you can curl it directly or put a reverse proxy
+    # in front. Runs on any Linux — Raspberry Pi hardware, WSL, a laptop,
+    # an EC2 instance. Nothing in this profile is hardware-specific.
+    #
+    # Use this for:
+    #   - bare-metal / single-host deployments
+    #   - WSL "server" style development
+    #   - cloud VMs (AWS, Hetzner, Fly, etc.)
+    #   - any case where there's no OpenClaw / Hermes / Pi gateway above us
+    # ------------------------------------------------------------------
+    "standalone": HostProfile(
+        name="standalone",
+        image_tag="base",
+        description="Thin Nursery runtime. No gateway framework. Agent HTTP published to host.",
+        extra_run_args=(
+            "--add-host=host.docker.internal:host-gateway",
+        ),
+        default_env=(
+            ("NURSERY_HOST", "standalone"),
             ("NURSERY_OLLAMA_URL", "http://host.docker.internal:11434"),
         ),
         publish_port=7860,
