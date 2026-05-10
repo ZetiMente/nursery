@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Turnkey reproducible AI agents — CLI and schema validator."
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Matthew Polonia" },
 ]
@@ -15,8 +15,6 @@ classifiers = [
     "Operating System :: POSIX",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development",

@@ -79,7 +79,7 @@ uv tool install git+https://github.com/ZetiMente/nursery  # direct from GitHub
 nursery spawn path/to/agent.yaml
 ```
 
-Python 3.10+ required. Dependencies (`pyyaml`, `jsonschema`) install automatically.
+Python 3.12+ required. Dependencies (`pyyaml`, `jsonschema`) install automatically.
 
 ## Host profiles
 
