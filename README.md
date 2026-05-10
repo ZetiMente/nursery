@@ -28,30 +28,128 @@ If you can spawn a fresh instance, which one is "it"? The **workspace** is the i
 
 You can get a new body. You can't get a new self.
 
-## Quickstart *(aspirational — see Status)*
+## Quickstart
 
 ```bash
-# Install the CLI (requires uv — https://docs.astral.sh/uv/)
+# 1. Make sure the host is ready (see Host Prerequisites below).
+
+# 2. Install the CLI.
 uv tool install git+https://github.com/ZetiMente/nursery
+# Or, from a clone:
+uv tool install .
 
-# Validate an agent spec
-nursery validate agent.yaml
+# 3. Build the container images locally.
+docker/build.sh                  # builds :base and :openclaw
 
-# Spawn a new agent from a template
-nursery spawn examples/agents/layla.yaml
+# 4. Spawn an example agent.
+nursery spawn examples/agents/pi-layla.yaml
 
-# List running agents
+# 5. Verify.
 nursery ps
+curl http://localhost:7860/healthz
 
-# Stop one (body dies, workspace persists)
-nursery stop layla
+# 6. Message it.
+curl -X POST http://localhost:7860/message \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"hello"}'
 
-# Respawn it from the same workspace (same soul, new body)
-nursery spawn examples/agents/layla.yaml
-
-# Clone a blueprint into a new individual (new workspace, same config)
-nursery fork examples/agents/layla.yaml --as maya
+# 7. Clean up.
+nursery stop layla-pi
+nursery rm layla-pi
 ```
+
+Full commands and per-host variants live in [`cli/README.md`](./cli/README.md) and the host-specific READMEs under [`hosts/`](./hosts/).
+
+## Host Prerequisites
+
+These are the things that must be true **on the host** before `nursery spawn` can produce a working agent. Tested on Raspberry Pi OS (Debian 12), should apply to any Linux.
+
+### 1. Docker
+
+Install [Docker Engine](https://docs.docker.com/engine/install/) and make sure the daemon is running.
+
+```bash
+docker --version          # any modern version (20.10+)
+systemctl is-active docker
+```
+
+If your user isn't in the `docker` group, Nursery falls back to `sudo docker` automatically and prints a one-line notice. To drop the notice:
+
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+```
+
+### 2. `uv`
+
+The CLI is packaged as a Python project installed with [uv](https://docs.astral.sh/uv/).
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv --version
+```
+
+### 3. Ollama — reachable from the container
+
+This is the one that commonly bites people on Linux. The agent container runs inside Docker and reaches the host's Ollama via `host.docker.internal:11434`. Two things have to be true for that to work:
+
+**3a. Ollama must listen on all interfaces, not just `127.0.0.1`.**
+
+The default install (`curl -fsSL https://ollama.com/install.sh | sh`) binds Ollama to loopback only. Containers on the docker bridge can't reach loopback on the host. Fix with a systemd drop-in:
+
+```bash
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+echo '[Service]
+Environment="OLLAMA_HOST=0.0.0.0"' | sudo tee /etc/systemd/system/ollama.service.d/override.conf
+
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+Verify:
+
+```bash
+ss -lnt | grep 11434      # should show *:11434, NOT 127.0.0.1:11434
+```
+
+**3b. If you run a firewall (ufw, firewalld), allow the docker bridge to reach Ollama.**
+
+Docker's default bridge is `172.17.0.0/16`. With `ufw` enabled, traffic from the bridge to the host is blocked unless you allow it.
+
+```bash
+# ufw
+sudo ufw allow from 172.17.0.0/16 to any port 11434 proto tcp \
+  comment 'Nursery agents → host Ollama'
+sudo ufw reload
+```
+
+Or the equivalent rule in whatever firewall you use. If you have *no* firewall, you can skip this step.
+
+**3c. Pull at least one model.**
+
+The example specs reference `batiai/gemma4-e2b:q4` (2.3 B effective params, Q4 quant, ~3.4 GB on disk, runs on a Pi 4 with 8 GB RAM).
+
+```bash
+ollama pull batiai/gemma4-e2b:q4
+```
+
+For skill retrieval (optional; see [Skills Ecosystem](#skills-ecosystem)) also pull the embedding model:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+### Quick sanity check
+
+Once prerequisites are in place, this one-liner tests the container-to-Ollama path without Nursery at all:
+
+```bash
+docker run --rm --add-host=host.docker.internal:host-gateway alpine/curl:latest \
+  -s --max-time 5 http://host.docker.internal:11434/api/version
+# → {"version":"0.x.y"}
+```
+
+If that works, `nursery spawn` will work.
 
 ## Example Agent Spec
 
