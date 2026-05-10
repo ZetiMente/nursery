@@ -1,0 +1,22 @@
+# Terraform state + local artifacts
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl.bak
+
+# Local variable files — typically contain personal values (project ID,
+# IP, etc.). Committed values would force everyone to use the same.
+terraform.tfvars
+*.auto.tfvars
+
+# Plan outputs
+*.tfplan
+plan.out
+
+# Crash log
+crash.log
+
+# Application default credentials should never land here
+adc.json
+application_default_credentials.json
