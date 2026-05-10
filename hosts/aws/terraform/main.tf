@@ -80,10 +80,6 @@ data "aws_ec2_instance_type_offerings" "azs" {
     name   = "instance-type"
     values = [var.instance_type]
   }
-  filter {
-    name   = "location-type"
-    values = ["availability-zone"]
-  }
   location_type = "availability-zone"
 }
 
