@@ -253,6 +253,69 @@ These are the decisions that actually matter. The Dockerfile is easy; these are 
 4. **State portability.** Moving a running agent between hosts (stop → rsync workspace → start on new host).
 5. **Model flexibility.** A thin inference-client abstraction inside the image reads `MODEL=` and picks the right provider.
 
+## The Orchestrator (Vision)
+
+*Convention over configuration. Rails for agent fleets.*
+
+The commands you've seen above — `nursery spawn <spec.yaml>`, `nursery validate`, `nursery ps` — are the **plumbing**. The vision is to wrap them in a single **orchestrator verb** that does the right thing for the common cases without making you assemble pieces by hand. Think `rails new` for agent fleets: one command, sensible defaults, escape hatches when you need them.
+
+### One verb, four axes
+
+```
+nursery spawn <count> [--host ...] [--framework ...] [--model ...] [--spec ...]
+```
+
+Four dimensions, each with a default:
+
+| Axis | Values | Default |
+|---|---|---|
+| **count** | `1`, `2`, … `N` | `1` |
+| **host** | `local`, `pi`, `gcp`, `aws` | `local` (this box — laptop, WSL, Pi) |
+| **framework** | `standalone`, `openclaw`, `hermes` | `standalone` |
+| **model** | `ollama`, `anthropic`, `openai`, … | `ollama` (offline-by-default) |
+
+So the zero-arg case is honest: `nursery spawn` gives you one local-model standalone agent on the box you're on. No cloud account. No API keys. Works on a Raspberry Pi or a WSL laptop.
+
+### Density follows the model
+
+API agents are glorified gateways — they call out to a hosted model and idle on RAM. Pack many on one box. Local-model agents are the opposite — they pin a GPU and want the whole device.
+
+`--model` is the density signal:
+
+- `--model anthropic` (or any API backend) → many agents per host, default packing
+- `--model ollama` (or any local backend) → ~1 agent per GPU, no overcommit by default
+
+Override with `--per-host N` when you know better than the default.
+
+### Heterogeneous fleets by composition
+
+You don't need a fleet spec file for the common case — just run the command twice:
+
+```bash
+# VM 1: one GPU-bound local agent
+nursery spawn 1 --host gcp --model ollama
+
+# VM 2: four cheap API agents packed together
+nursery spawn 4 --host gcp --model anthropic
+```
+
+Each invocation provisions (or reuses) one host and packs agents onto it. A higher-level `nursery fleet <fleet.yaml>` spec can come later if recurring topologies justify it.
+
+### What the orchestrator does under the hood
+
+For any `spawn` invocation:
+
+1. **Resolve the host.** Provision a fresh VM (cloud) or check the current machine (local / pi). Reuse if a matching host is already up.
+2. **Install the runtime.** Docker + Ollama (if the model is local) + the framework's agent image.
+3. **Spawn `count` containers.** Each gets its own workspace, soul, and secrets directory. Identity per agent — never shared.
+4. **Hand back addresses.** SSH command, `nursery ps` output, healthz URLs.
+
+Every step already exists as a separate piece in this repo (`hosts/gcp/terraform/`, `docker/build.sh`, `nursery spawn <spec.yaml>`). The orchestrator's job is to compose them under one verb, with the right defaults, so that the common path is a single command.
+
+### Status
+
+🥚 **Not built yet.** This section is the design north star — when the orchestrator lands (likely around [Phase 6 / Phase 7](#roadmap)), this is the shape it should take. Until then, the pieces it would compose still work on their own.
+
 ## Roadmap
 
 Nursery grows in phases. Each phase has one goal: prove the next layer works before stacking on it.
