@@ -1,0 +1,13 @@
+# Terraform state + local artifacts
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl.bak
+
+# Plan outputs
+*.tfplan
+plan.out
+
+# Crash log
+crash.log
