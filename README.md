@@ -34,9 +34,12 @@ You can get a new body. You can't get a new self.
 ```bash
 # 1. Make sure the host is ready (see Host Prerequisites below).
 
-# 2. Install the CLI.
+# 2. Install the CLI. Three options, pick one:
+#    a. From a tagged GitHub release (versioned wheel — recommended for downstream projects):
+uv tool install https://github.com/ZetiMente/nursery/releases/download/v0.2.0/nursery_cli-0.2.0-py3-none-any.whl
+#    b. From the main branch (bleeding edge):
 uv tool install git+https://github.com/ZetiMente/nursery
-# Or, from a clone:
+#    c. From a local clone (dev):
 uv tool install .
 
 # 3. Build the container images locally.
@@ -63,6 +66,28 @@ nursery rm layla-standalone
 ```
 
 Full commands and per-host variants live in [`cli/README.md`](./cli/README.md) and the host-specific READMEs under [`hosts/`](./hosts/).
+
+### Using `nursery-cli` from another Python project
+
+Tagged wheels are published as **GitHub Release assets** on this repo — see [Releases](https://github.com/ZetiMente/nursery/releases). To pull `nursery-cli` into a downstream project, point at the release asset URL:
+
+**With `uv` (recommended):**
+
+```toml
+# pyproject.toml
+[project]
+dependencies = [
+    "nursery-cli @ https://github.com/ZetiMente/nursery/releases/download/v0.2.0/nursery_cli-0.2.0-py3-none-any.whl",
+]
+```
+
+**With plain `pip`:**
+
+```bash
+pip install https://github.com/ZetiMente/nursery/releases/download/v0.2.0/nursery_cli-0.2.0-py3-none-any.whl
+```
+
+PyPI publication is deferred until the API stabilizes; until then, version-pin against a release asset (immutable) rather than `git+main` (moves).
 
 ## Host Prerequisites
 
