@@ -1,6 +1,6 @@
 [project]
 name = "nursery-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "Turnkey reproducible AI agents — CLI and schema validator."
 readme = "README.md"
 license = { file = "LICENSE" }
