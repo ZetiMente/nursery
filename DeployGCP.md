@@ -14,6 +14,7 @@ This is the GCP counterpart to [DeployAWS.md](./DeployAWS.md). The same Nursery 
 |---|---|
 | Instance | `g2-standard-4` — 1× NVIDIA L4 (24 GB VRAM), 4 vCPU, 16 GB RAM |
 | Image | Deep Learning VM `common-cu129-ubuntu-2404-nvidia-580` — **Ubuntu 24.04, Python 3.12, CUDA 12.9, NVIDIA driver 580** |
+| Container runtime | **Docker + NVIDIA Container Toolkit auto-installed on first boot** via `metadata_startup_script` (the DL image ships `nvidia-container-cli` but no container runtime) |
 | Purchasing | Spot VM (no 24h limit, terminate-on-preemption) |
 | Storage | 150 GB pd-ssd boot disk, auto-deleted with the VM |
 | Region / zone | `us-central1-a` (Iowa — closest low-latency to Indiana) |
@@ -215,15 +216,19 @@ gcloud compute ssh nursery-l4 --zone=us-central1-a --project=nursery-factory
 On the VM, confirm the stack is what we asked for:
 
 ```bash
-python3 --version        # Python 3.12.x
-nvidia-smi               # Shows the L4 (24 GB VRAM)
-nvcc --version           # CUDA 12.9
-docker --version         # Pre-installed in the DL VM image
-nvidia-container-cli --version  # NVIDIA Container Toolkit present
-cat /etc/os-release      # Ubuntu 24.04 LTS
+python3 --version                              # Python 3.12.x
+nvidia-smi                                     # 1× NVIDIA L4 (24 GB VRAM), driver 580.x
+/usr/local/cuda/bin/nvcc --version             # CUDA 12.9 toolkit (not on default PATH)
+docker --version                               # Installed by startup script (see note below)
+nvidia-container-cli --version                 # Toolkit pre-installed in the DL image
+sudo docker run --rm --gpus all \
+  nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi  # End-to-end GPU passthrough
+cat /etc/os-release | head -2                  # Ubuntu 24.04 LTS
 ```
 
-All of these should respond cleanly. If any don't, the image or driver install didn't complete — post in the PR.
+> **First-boot timing.** The startup script (Docker install + NVIDIA runtime config) typically completes in **60–90 seconds** after the VM is reachable on SSH. If `docker --version` says "command not found" on first SSH, the script is still running — `sudo tail -f /var/log/nursery-startup.log` to watch progress, then re-try once you see `nursery-startup: complete`.
+
+If any of the above don't respond cleanly after the startup script finishes, the image or driver install didn't complete — post in the PR.
 
 `exit` when satisfied.
 
@@ -307,7 +312,7 @@ terraform force-unlock <LOCK_ID>
 
 Same follow-up trajectory as AWS:
 
-1. **Startup script** — install Ollama (GPU-enabled), pull models, install Nursery CLI automatically on first boot.
+1. **Extend the startup script** — Docker is already auto-installed (this PR). Next: install Ollama (GPU-enabled), pull models, install Nursery CLI automatically on first boot.
 2. **`nursery gcp launch`** — Python wrapper that reads specs and runs Terraform.
 3. **GCS state backend** — the GCP equivalent of our AWS-S3 plan for team-safe state.
 4. **Hermes containerized deployment** — spawn Hermes agents on the VM with `nursery spawn`.
@@ -321,8 +326,9 @@ Same follow-up trajectory as AWS:
 |---|---|
 | [`hosts/gcp/terraform/versions.tf`](./hosts/gcp/terraform/versions.tf) | Terraform + provider version pins |
 | [`hosts/gcp/terraform/variables.tf`](./hosts/gcp/terraform/variables.tf) | All inputs, defaults documented |
-| [`hosts/gcp/terraform/main.tf`](./hosts/gcp/terraform/main.tf) | VPC, subnet, firewall, SA, Spot VM |
+| [`hosts/gcp/terraform/main.tf`](./hosts/gcp/terraform/main.tf) | VPC, subnet, firewall, SA, Spot VM, startup-script wiring |
 | [`hosts/gcp/terraform/outputs.tf`](./hosts/gcp/terraform/outputs.tf) | Public IP, SSH commands, etc. |
 | [`hosts/gcp/terraform/terraform.tfvars.example`](./hosts/gcp/terraform/terraform.tfvars.example) | Copy to `terraform.tfvars`, adjust |
+| [`hosts/gcp/terraform/startup-scripts/install-docker.sh`](./hosts/gcp/terraform/startup-scripts/install-docker.sh) | First-boot installer for Docker + NVIDIA Container Toolkit |
 | [`hosts/gcp/terraform/README.md`](./hosts/gcp/terraform/README.md) | Short reference |
 | [`hosts/gcp/terraform/.gitignore`](./hosts/gcp/terraform/.gitignore) | Excludes state, `.terraform/`, `.tfvars`, creds |
