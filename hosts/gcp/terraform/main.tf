@@ -9,6 +9,10 @@
 #   5. A 150 GB pd-ssd boot disk from the Deep Learning VM image family
 #      common-cu129-ubuntu-2404-nvidia-580
 #      (Ubuntu 24.04, Python 3.12, CUDA 12.9, NVIDIA driver 580).
+#   6. A first-boot startup script (startup-scripts/install-docker.sh) that
+#      installs Docker Engine and wires the NVIDIA Container Toolkit, so the
+#      VM is ready for `docker run --gpus all` without manual setup. The DL
+#      image ships nvidia-container-cli but no container runtime.
 #
 # OS Login is forced on at the project scope via metadata, so there's no
 # per-instance SSH key management. 'gcloud compute ssh' handles auth via IAM.
@@ -156,6 +160,11 @@ resource "google_compute_instance" "this" {
   metadata = {
     enable-oslogin = "TRUE"
   }
+
+  # First-boot installer for Docker + NVIDIA Container Toolkit. Runs as root
+  # via GCP's startup-script mechanism, logs to /var/log/nursery-startup.log.
+  # Typically completes 60-90 seconds after the VM is reachable on SSH.
+  metadata_startup_script = file("${path.module}/startup-scripts/install-docker.sh")
 
   labels = local.common_labels
 

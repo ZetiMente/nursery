@@ -393,6 +393,16 @@ Once `aws configure` is set up and `aws sts get-caller-identity` returns your IA
 
 See [`DeployGCP.md`](./DeployGCP.md) for the GCP counterpart — same L4 spot VM shape, running on Ubuntu 24.04 with Python 3.12, CUDA 12.9, and NVIDIA driver 580 pre-installed. Terraform module in [`hosts/gcp/terraform/`](./hosts/gcp/terraform/).
 
+The GCP module ships a [`metadata_startup_script`](./hosts/gcp/terraform/startup-scripts/install-docker.sh) that installs Docker + wires the NVIDIA Container Toolkit on first boot, and a [`deploy.sh`](./hosts/gcp/terraform/deploy.sh) wrapper that tries L4 spot in `us-central1-a/b/c` first and falls back to on-demand if every spot zone is exhausted.
+
+### Next step — wire Hermes to the deployed VM
+
+The VM gives us Docker + GPU; the next session's work is making **Hermes** (the Nous Research agent framework, see [Target Runtimes](#target-runtimes)) able to respond from this VM using the Ollama / `gemma4:26b` we just stood up. Plan:
+
+1. **Read** [`hosts/hermes/`](./hosts/hermes/) to understand the adapter's contract — what it expects for spawn config, secrets, and the model endpoint.
+2. **Plan the Hermes setup** — where it runs (on-VM vs. laptop with SSH tunnel vs. firewall :11434 open), how its config points at `http://localhost:11434` or the external Ollama address, and how `nursery spawn` invokes it.
+3. **New branch + new PR** for the Hermes wiring once the plan is concrete. Keeps the GCP-startup PR (this one) scoped to "VM is turnkey for containers" and the Hermes PR scoped to "first agent responds end-to-end."
+
 ## Inspirations
 
 Nursery is not built in a vacuum. Research and projects we're reading, in the order they mattered to our thinking.
