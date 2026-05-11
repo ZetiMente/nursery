@@ -1,22 +1,14 @@
 #!/usr/bin/env bash
 # deploy.sh — Nursery GCP turnkey deploy with zone + pricing fallback.
 #
-# Tries L4 Spot in all us-central1 zones first; on capacity exhaustion in
-# every zone, falls back to on-demand in the same zones. Stops at the first
-# success and exits 0. Exits non-zero only when all six attempts have been
-# exhausted, or on a non-capacity error.
+# Single source of truth for region targeting: edit the CONFIG block below.
+# Tries L4 Spot in every configured zone first, then On-demand in the same
+# zones. Stops at the first success and exits 0. Exits non-zero only when
+# every attempt has been exhausted, or on a non-capacity error.
 #
-# Sequence:
-#   1. us-central1-a  Spot       (~$0.21-0.28/hr)
-#   2. us-central1-b  Spot
-#   3. us-central1-c  Spot
-#   4. us-central1-a  On-demand  (~$0.71/hr)
-#   5. us-central1-b  On-demand
-#   6. us-central1-c  On-demand
-#
-# Overrides `zone` and `preemptible` via -var on each attempt. Any other
-# values in terraform.tfvars (project_id, machine_type, etc.) are honored
-# as-is. Extra args to this script are forwarded to `terraform apply`.
+# Overrides `region`, `zone`, and `preemptible` via -var on each attempt.
+# Other values in terraform.tfvars (project_id, machine_type, etc.) are
+# honored as-is. Extra args to this script are forwarded to `terraform apply`.
 #
 # Idempotency: each terraform run is a normal apply, so if the previous run
 # already landed a VM in the matching zone with matching preemptible, that
@@ -26,14 +18,35 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-ATTEMPTS=(
-  "us-central1-a:true:Spot"
-  "us-central1-b:true:Spot"
-  "us-central1-c:true:Spot"
-  "us-central1-a:false:On-demand"
-  "us-central1-b:false:On-demand"
-  "us-central1-c:false:On-demand"
-)
+# === CONFIG: change REGION to retarget the deploy. =========================
+# Only change REGION. L4-bearing zones are looked up from the table below —
+# North-America regions only. Pricing is roughly region-agnostic:
+# Spot ~$0.21–0.28/hr, On-demand ~$0.71/hr.
+#
+# If a region's L4 zone list changes, update the case statement below.
+# Verify against: https://cloud.google.com/compute/docs/gpus/gpu-regions-zones
+REGION="us-east1"
+# ===========================================================================
+
+# Look up L4 zones for REGION (North America only).
+case "$REGION" in
+  us-central1) L4_ZONES=(us-central1-a us-central1-b us-central1-c) ;;
+  us-east1)    L4_ZONES=(us-east1-c us-east1-d) ;;
+  us-east4)    L4_ZONES=(us-east4-a us-east4-b us-east4-c) ;;
+  us-east5)    L4_ZONES=(us-east5-b) ;;
+  us-west1)    L4_ZONES=(us-west1-a us-west1-b us-west1-c) ;;
+  us-west4)    L4_ZONES=(us-west4-a us-west4-c) ;;
+  *)
+    echo "[deploy.sh] error: REGION='$REGION' is not in the L4 lookup table (NA only)." >&2
+    echo "[deploy.sh] known: us-central1 us-east1 us-east4 us-east5 us-west1 us-west4" >&2
+    exit 2
+    ;;
+esac
+
+# Build the attempt list: every L4 zone in Spot, then every L4 zone On-demand.
+ATTEMPTS=()
+for z in "${L4_ZONES[@]}"; do ATTEMPTS+=("$z:true:Spot"); done
+for z in "${L4_ZONES[@]}"; do ATTEMPTS+=("$z:false:On-demand"); done
 
 log() { echo "[deploy.sh] $*" >&2; }
 
@@ -51,6 +64,7 @@ for attempt in "${ATTEMPTS[@]}"; do
   LOG_FILE="$(mktemp -t nursery-deploy.XXXXXX.log)"
   set +e
   terraform apply -auto-approve \
+    -var="region=$REGION" \
     -var="zone=$ZONE" \
     -var="preemptible=$PREEMPTIBLE" \
     "$@" 2>&1 | tee "$LOG_FILE"
@@ -79,10 +93,10 @@ for attempt in "${ATTEMPTS[@]}"; do
 done
 
 log ""
-log "==== ALL SIX ATTEMPTS FAILED ===="
-log "L4 capacity unavailable in us-central1-a/b/c for both Spot and On-demand."
+log "==== ALL ${#ATTEMPTS[@]} ATTEMPTS FAILED ===="
+log "L4 capacity unavailable in $REGION (zones: ${L4_ZONES[*]}) for both Spot and On-demand."
 log "Options:"
 log "  - Wait 15-30 min and retry (./deploy.sh)"
-log "  - Try a different region (edit terraform.tfvars: region + zone)"
+log "  - Try a different region (edit the CONFIG block at the top of this script)"
 log "  - Check the GCP status page: https://status.cloud.google.com"
 exit 1
