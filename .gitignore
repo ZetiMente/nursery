@@ -70,3 +70,7 @@ apikey*
 workspaces/
 *_workspace/
 workspace-*/
+
+# Local Claude notes — operational context, not for public repo
+CLAUDE.md
+CLAUDE.local.md
