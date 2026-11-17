@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "baa34f59034525e0d92cd575b51d0729306977b9",
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "package-name": "nursery-cli",
+      "include-component-in-tag": false,
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='nursery-cli')].version"
+        }
+      ]
+    }
+  }
+}
